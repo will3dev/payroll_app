@@ -34,7 +34,6 @@ func (circuit *TransferCircuit) Define(api frontend.API) error {
 
 	// Verify receiver's encrypted summary includes the transfer amount and is encrypted with the receiver's public key
 	CheckPCTReceiver(api, babyjub, circuit.Receiver, circuit.ValueToTransfer)
-
 	// Verify auditor's encrypted summary includes the transfer amount and is encrypted with the auditor's public key
 	CheckPCTAuditor(api, babyjub, circuit.Auditor, circuit.ValueToTransfer)
 	return nil

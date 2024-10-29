@@ -102,17 +102,7 @@ func TestRegistration() {
 
 func TestTransfer() {
 
-	fmt.Println("Compiling transfer circuit")
-	tcircuit := circuits.TransferCircuit{}
-	tr1cs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &tcircuit)
-	if err != nil {
-		panic(err)
-	}
-	nbConstraints := tr1cs.GetNbConstraints()
-	fmt.Println("Number of constraints:", nbConstraints)
-
-	utils.GenerateTransferInputs()
-
+	utils.TestTransfer()
 	// Generate a proof for the registration circuit
 
 	// assignment := circuits.TransferCircuit{

@@ -64,33 +64,35 @@ CheckPCTAuditor verifies if the given auditor's Poseidon ciphertext is well-form
 func CheckPCTAuditor(api frontend.API, bj *babyjub.BjWrapper, auditor Auditor, value frontend.Variable) {
 	poseidonAuthKey := bj.MulWithBasePoint(auditor.PCT.Random)
 	bj.AssertPoint(poseidonAuthKey, auditor.PCT.AuthKey[0], auditor.PCT.AuthKey[1])
-
+	api.Println("Poseidon auth key xd:", poseidonAuthKey.X, "Poseidon auth key yd:", poseidonAuthKey.Y)
 	// r * pk
 	poseidonEncryptionKey := bj.MulWithScalar(auditor.PublicKey.P.X, auditor.PublicKey.P.Y, auditor.PCT.Random)
+	api.Println("Poseidon encryption key xd:", poseidonEncryptionKey.X, "Poseidon encryption key yd:", poseidonEncryptionKey.Y)
 
 	// Decrypt the ciphertext
-	decrypted := poseidon.PoseidonDecryptSingle(api, [2]frontend.Variable{poseidonEncryptionKey.X, poseidonEncryptionKey.Y}, auditor.PCT.Nonce, auditor.PCT.Ciphertext)
+	decrypted := poseidon.PoseidonDecrypt_2(api, [2]frontend.Variable{poseidonEncryptionKey.X, poseidonEncryptionKey.Y}, auditor.PCT.Nonce, auditor.PCT.Ciphertext)
 
 	api.AssertIsEqual(decrypted[0], value)
-
+	api.AssertIsEqual(decrypted[1], 0)
+	api.Println("Decrypted auditor:", decrypted[0], "Value:", value)
 }
 
 /*
 CheckPCTSender verifies if the given sender's Poseidon ciphertext is well-formed by re-encryption
 */
-func CheckPCTSender(api frontend.API, bj *babyjub.BjWrapper, sender Sender) {
-	poseidonAuthKey := bj.MulWithBasePoint(sender.PCT.Random)
-	bj.AssertPoint(poseidonAuthKey, sender.PCT.AuthKey[0], sender.PCT.AuthKey[1])
+// func CheckPCTSender(api frontend.API, bj *babyjub.BjWrapper, sender Sender) {
+// 	poseidonAuthKey := bj.MulWithBasePoint(sender.PCT.Random)
+// 	bj.AssertPoint(poseidonAuthKey, sender.PCT.AuthKey[0], sender.PCT.AuthKey[1])
 
-	// r * pk
-	poseidonEncryptionKey := bj.MulWithScalar(sender.PublicKey.P.X, sender.PublicKey.P.Y, sender.PCT.Random)
+// 	// r * pk
+// 	poseidonEncryptionKey := bj.MulWithScalar(sender.PublicKey.P.X, sender.PublicKey.P.Y, sender.PCT.Random)
 
-	// Decrypt the ciphertext
-	decrypted := poseidon.PoseidonDecryptSingle(api, [2]frontend.Variable{poseidonEncryptionKey.X, poseidonEncryptionKey.Y}, sender.PCT.Nonce, sender.PCT.Ciphertext)
+// 	// Decrypt the ciphertext
+// 	decrypted := poseidon.PoseidonDecryptSingle(api, [2]frontend.Variable{poseidonEncryptionKey.X, poseidonEncryptionKey.Y}, sender.PCT.Nonce, sender.PCT.Ciphertext)
 
-	api.AssertIsEqual(decrypted[0], sender.Balance)
+// 	api.AssertIsEqual(decrypted[0], sender.Balance)
 
-}
+// }
 
 /*
 CheckPCTReceiver verifies if the given receiver's Poseidon ciphertext is well-formed by re-encryption
@@ -103,8 +105,10 @@ func CheckPCTReceiver(api frontend.API, bj *babyjub.BjWrapper, receiver Receiver
 	poseidonEncryptionKey := bj.MulWithScalar(receiver.PublicKey.P.X, receiver.PublicKey.P.Y, receiver.PCT.Random)
 
 	// Decrypt the ciphertext
-	decrypted := poseidon.PoseidonDecryptSingle(api, [2]frontend.Variable{poseidonEncryptionKey.X, poseidonEncryptionKey.Y}, receiver.PCT.Nonce, receiver.PCT.Ciphertext)
-
+	decrypted := poseidon.PoseidonDecrypt_2(api, [2]frontend.Variable{poseidonEncryptionKey.X, poseidonEncryptionKey.Y}, receiver.PCT.Nonce, receiver.PCT.Ciphertext)
+	api.Println("Decrypted receiver xd:", decrypted[0], "Decrypted receiver yd:", decrypted[1], "Value:", value)
 	api.AssertIsEqual(decrypted[0], value)
+	api.AssertIsEqual(decrypted[1], 0)
+	api.Println("Decrypted receiver:", decrypted[0], "Value:", value)
 
 }

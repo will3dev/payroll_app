@@ -11,7 +11,6 @@ type Sender struct {
 	Balance     frontend.Variable
 	BalanceEGCT ElGamalCiphertext
 	ValueEGCT   ElGamalCiphertext
-	PCT         PoseidonCiphertext
 }
 
 type Receiver struct {
