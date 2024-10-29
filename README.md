@@ -1,1 +1,1 @@
-# EncryptedERC
+# Encrypted ERC-20 
