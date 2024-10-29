@@ -9,5 +9,6 @@
 		"resolveJsonModule": true
 	},
 	"include": ["./src/**/*.ts", "./test/**/*.ts"],
-	"exclude": []
+	"exclude": [],
+	"files": ["./hardhat.config.ts"]
 }
