@@ -4,18 +4,23 @@ pragma solidity 0.8.27;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Point} from "./types/Types.sol";
 import {IEncryptedERC} from "./interfaces/IEncryptedERC.sol";
+import {IRegistrationVerifier} from "./interfaces/verifiers/IRegistrationVerifier.sol";
 import {UserAlreadyRegistered} from "./errors/Errors.sol";
 
 contract Registrar {
     address public constant BURN_USER =
         0x1111111111111111111111111111111111111111;
 
+    // registration verifier
+    IRegistrationVerifier public registrationVerifier;
+
     /**
      * @dev Mapping of user addresses to their public keys
      */
     mapping(address userAddress => Point userPublicKey) public userPublicKeys;
 
-    constructor() {
+    constructor(address _registrationVerifier) {
+        registrationVerifier = IRegistrationVerifier(_registrationVerifier);
         // setting burn user to the identity point (0, 1)
         userPublicKeys[BURN_USER] = Point({X: 0, Y: 1});
     }
@@ -27,28 +32,20 @@ contract Registrar {
      */
     event Register(address indexed user, Point publicKey);
 
-    /**
-     *
-     * @param _encryptedERC Contract address of the encrypted ERC
-     * @param _tokenId Token ID
-     * @dev User needs to provide which contract and which token they want to register for
-     * so registrar can set the correct balance pct for the user
-     */
     // TODO(@mberatoz): pass the proof as a parameter
-    function register(address _encryptedERC, uint256 _tokenId) external {
+    function register(
+        uint256[8] calldata proof,
+        uint256[2] calldata input
+    ) external {
         address account = msg.sender;
 
-        // TODO(@mberatoz): verify the proof
+        registrationVerifier.verifyProof(proof, input);
 
         if (isUserRegistered(account)) {
             revert UserAlreadyRegistered();
         }
 
-        // TODO(@mberatoz): change this to the actual public key from the public ins
-        _register(account, Point({X: 0, Y: 1}));
-
-        // TODO(@mberatoz): change this to the actualy PCT from the public ins
-        // IEncryptedERC(_encryptedERC).setUserBalancePCT(account, _tokenId, []);
+        _register(account, Point({X: input[0], Y: input[1]}));
     }
 
     /**
