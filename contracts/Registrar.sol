@@ -32,6 +32,10 @@ contract Registrar {
      */
     event Register(address indexed user, Point publicKey);
 
+    /**
+     * @param proof Proof of the user
+     * @param input Input of the proof
+     */
     function register(
         uint256[8] calldata proof,
         uint256[2] calldata input

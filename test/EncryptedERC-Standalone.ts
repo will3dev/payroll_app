@@ -1,5 +1,5 @@
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/dist/src/signer-with-address";
-import { expect, use } from "chai";
+import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { Registrar } from "../typechain-types/contracts/Registrar";
 import {

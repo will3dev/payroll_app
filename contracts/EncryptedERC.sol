@@ -1,17 +1,27 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.27;
 
+// contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TokenTracker} from "./TokenTracker.sol";
 import {EncryptedUserBalances} from "./EncryptedUserBalances.sol";
 
-import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance} from "./types/Types.sol";
-import {UserNotRegistered, UnauthorizedAccess, AuditorKeyNotSet, InvalidProof, InvalidOperation} from "./errors/Errors.sol";
+// libraries
+import {BabyJubJub} from "./libraries/BabyJubJub.sol";
 
+// types
+import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance} from "./types/Types.sol";
+
+// errors
+import {UserNotRegistered, UnauthorizedAccess, AuditorKeyNotSet, InvalidProof, InvalidOperation, TransferFailed, TokenDecimalsTooLow} from "./errors/Errors.sol";
+
+// interfaces
 import {IRegistrar} from "./interfaces/IRegistrar.sol";
 import {IMintVerifier} from "./interfaces/verifiers/IMintVerifier.sol";
 import {IBurnVerifier} from "./interfaces/verifiers/IBurnVerifier.sol";
 import {ITransferVerifier} from "./interfaces/verifiers/ITransferVerifier.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
     // registrar contract
@@ -87,6 +97,20 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         address indexed from,
         address indexed to,
         uint256[7] auditorPCT
+    );
+
+    /**
+     * @param user Address of the user
+     * @param amount Amount of the deposit
+     * @param dust Amount of the dust
+     * @param tokenId Token ID
+     * @dev Emitted when a deposit is done
+     */
+    event Deposit(
+        address indexed user,
+        uint256 amount,
+        uint256 dust,
+        uint256 tokenId
     );
 
     ///////////////////////////////////////////////////
@@ -171,6 +195,13 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         _privateBurn(_user, input, _balancePCT);
     }
 
+    /**
+     * @param _to Address of the receiver
+     * @param _tokenId Token ID
+     * @param proof Proof
+     * @param input Proof input
+     * @param _balancePCT Balance PCT
+     */
     function transfer(
         address _to,
         uint256 _tokenId,
@@ -329,6 +360,13 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         emit PrivateBurn(_user, auditorPCT);
     }
 
+    /**
+     * @param _from Address of the sender
+     * @param _to Address of the receiver
+     * @param _tokenId Token ID
+     * @param input Proof input
+     * @param _balancePCT Balance PCT
+     */
     function _transfer(
         address _from,
         address _to,
@@ -388,5 +426,111 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
 
             emit PrivateTransfer(_from, _to, auditorPCT);
         }
+    }
+
+    ///////////////////////////////////////////////////
+    ///                Only Converter                ///
+    ///////////////////////////////////////////////////
+
+    /**
+     *
+     * @param _amount Amount to deposit
+     * @param _tokenAddress Token address
+     *
+     * @dev Deposits an existing ERC20 token to the contract
+     */
+    function deposit(
+        uint256 _amount,
+        address _tokenAddress,
+        uint256[7] memory balancePCT
+    ) public {
+        // revert if auditor key is not set
+        if (!isAuditorKeySet()) {
+            revert AuditorKeyNotSet();
+        }
+
+        // revert if contract is not a converter
+        if (!isConverter) {
+            revert InvalidOperation();
+        }
+
+        IERC20 token = IERC20(_tokenAddress);
+        uint256 dust;
+        uint256 tokenId;
+        address to = msg.sender;
+
+        // revert if the user is not registered to registrar contract
+        if (!registrar.isUserRegistered(to)) {
+            revert UserNotRegistered();
+        }
+
+        bool success = token.transferFrom(msg.sender, address(this), _amount);
+        if (!success) {
+            revert TransferFailed();
+        }
+
+        (dust, tokenId) = _convertFrom(to, _amount, _tokenAddress, balancePCT);
+
+        token.transfer(to, dust);
+
+        emit Deposit(to, _amount, dust, tokenId);
+    }
+
+    /**
+     *
+     * @param _to Address of the receiver
+     * @param _amount Amount to convert
+     * @param _tokenAddress Token address
+     *
+     * @dev Converts the ERC20 token to the native token
+     * @dev Converts the amount by changing the decimals
+     * @dev Also checks if this token is already added, if not adds it
+     *
+     * Returns dust and tokenId
+     */
+    function _convertFrom(
+        address _to,
+        uint256 _amount,
+        address _tokenAddress,
+        uint256[7] memory balancePCT
+    ) internal returns (uint256 dust, uint256 tokenId) {
+        uint8 tokenDecimals = IERC20Metadata(_tokenAddress).decimals();
+
+        if (tokenDecimals < decimals) {
+            revert TokenDecimalsTooLow(tokenDecimals);
+        }
+
+        uint256 scalingFactor = 10 ** (tokenDecimals - decimals);
+        uint256 value = _amount / scalingFactor;
+        dust = _amount % scalingFactor;
+
+        // Check if it's a new token
+        tokenId = tokenIds[_tokenAddress];
+        if (tokenId == 0) {
+            tokenId = _addToken(_tokenAddress);
+        }
+
+        {
+            uint256[2] memory publicKey = registrar.getUserPublicKey(_to);
+
+            EGCT memory _eGCT = BabyJubJub.encrypt(
+                Point({X: publicKey[0], Y: publicKey[1]}),
+                value
+            );
+
+            EncryptedBalance storage balance = balances[_to][tokenId];
+
+            if (balance.eGCT.c1.X == 0 && balance.eGCT.c1.Y == 0) {
+                balance.eGCT = _eGCT;
+            } else {
+                balance.eGCT.c1 = BabyJubJub._add(balance.eGCT.c1, _eGCT.c1);
+                balance.eGCT.c2 = BabyJubJub._add(balance.eGCT.c2, _eGCT.c2);
+            }
+
+            _commitUserBalance(_to, tokenId);
+            balance.balancePCT = balancePCT;
+        }
+
+        return (dust, tokenId);
     }
 }

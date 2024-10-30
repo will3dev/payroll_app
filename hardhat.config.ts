@@ -14,8 +14,8 @@ const config: HardhatUserConfig = {
 		},
 	},
 	gasReporter: {
-		enabled: true,
-		// L1: "avalanche",
+		enabled: false,
+		L1: "avalanche",
 		darkMode: true,
 	},
 };

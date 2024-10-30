@@ -3,12 +3,16 @@ import fs from "node:fs";
 import path from "node:path";
 import util from "node:util";
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/dist/src/signer-with-address";
+import { Base8, mulPointEscalar } from "@zk-kit/baby-jubjub";
+import { expect } from "chai";
 import { formatPrivKeyForBabyJub } from "maci-crypto";
 import {
+	decryptPoint,
 	encryptMessage,
 	processPoseidonDecryption,
 	processPoseidonEncryption,
 } from "../src/jub/jub";
+import type { AmountPCTStructOutput } from "../typechain-types/contracts/EncryptedERC";
 import { BabyJubJub__factory } from "../typechain-types/factories/contracts/libraries";
 import {
 	BurnVerifier__factory,
@@ -310,4 +314,37 @@ export const decryptPCT = async (
 	);
 
 	return decrypted;
+};
+
+export const getDecryptedBalance = async (
+	privateKey: bigint,
+	amountPCTs: AmountPCTStructOutput[],
+	balancePCT: bigint[],
+	encryptedBalance: bigint[][],
+) => {
+	let totalBalance = 0n;
+
+	if (balancePCT.some((e) => e !== 0n)) {
+		const decryptedBalancePCT = await decryptPCT(privateKey, balancePCT);
+		totalBalance += BigInt(decryptedBalancePCT[0]);
+	}
+
+	for (const [pct] of amountPCTs) {
+		if (pct.some((e) => e !== 0n)) {
+			const decryptedAmountPCT = await decryptPCT(privateKey, pct);
+			totalBalance += BigInt(decryptedAmountPCT[0]);
+		}
+	}
+
+	const decryptedBalance = decryptPoint(
+		privateKey,
+		encryptedBalance[0],
+		encryptedBalance[1],
+	);
+	if (totalBalance !== 0n) {
+		const expectedPoint = mulPointEscalar(Base8, totalBalance);
+		expect(decryptedBalance).to.deep.equal(expectedPoint);
+	}
+
+	return totalBalance;
 };

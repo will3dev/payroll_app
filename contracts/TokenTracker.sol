@@ -23,12 +23,14 @@ contract TokenTracker {
     }
 
     /**
-     * @param _tokenAddress Address of the token
+     * @param tokenAddress Address of the token
      * @dev Adds a token to the tracker
      */
-    function _addToken(address _tokenAddress) internal {
-        tokenIds[_tokenAddress] = nextTokenId;
-        tokens.push(_tokenAddress);
+    function _addToken(address tokenAddress) internal returns (uint256) {
+        uint256 newTokenId = nextTokenId;
+        tokenIds[tokenAddress] = newTokenId;
+        tokens.push(tokenAddress);
         nextTokenId++;
+        return newTokenId;
     }
 }
