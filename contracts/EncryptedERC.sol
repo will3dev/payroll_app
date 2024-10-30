@@ -476,6 +476,8 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         emit Deposit(to, _amount, dust, tokenId);
     }
 
+    function withdraw(uint256 _tokenId) public {}
+
     /**
      *
      * @param _to Address of the receiver
