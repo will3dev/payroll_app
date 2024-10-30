@@ -16,6 +16,7 @@ import {
 	deployLibrary,
 	deployVerifiers,
 	generateGnarkProof,
+	getDecryptedBalance,
 	privateBurn,
 	privateMint,
 	privateTransfer,
@@ -203,26 +204,20 @@ describe("EncryptedERC - Standalone", () => {
 
 			it("after private mint, balance should be updated properly", async () => {
 				const receiver = users[0];
+
 				const balance = await encryptedERC.balanceOfStandalone(
 					receiver.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					receiver.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
-				const expectedPoint = mulPointEscalar(Base8, mintAmount);
 
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
-
-				// check if the amount pct is set properly
-				const amountPCT = balance.amountPCTs[0];
-				const decrypted = await decryptPCT(receiver.privateKey, amountPCT[0]);
-
-				expect(decrypted).to.deep.equal([mintAmount]);
-
-				userBalance = decrypted[0];
+				expect(totalBalance).to.equal(mintAmount);
+				userBalance = totalBalance;
 			});
 		});
 
@@ -256,23 +251,14 @@ describe("EncryptedERC - Standalone", () => {
 					user.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					user.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
 
-				const expectedPoint = mulPointEscalar(Base8, userBalance - burnAmount);
-
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
-
-				const balancePCT = balance.balancePCT;
-
-				const decrypted = await decryptPCT(user.privateKey, balancePCT);
-
-				expect(decrypted).to.deep.equal([userBalance - burnAmount]);
-
-				userBalance = decrypted[0];
+				userBalance = totalBalance;
 			});
 		});
 
@@ -325,36 +311,30 @@ describe("EncryptedERC - Standalone", () => {
 					userA.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					userA.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
-				const expectedPoint = mulPointEscalar(
-					Base8,
-					EXPECTED_BALANCE_AFTER_INITIAL_MINT,
-				);
-
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
 
 				const amountPCTs = balance.amountPCTs;
+
 				const decryptedAmountPCTs = [];
-				let sum = 0n;
 				for (const [pct] of amountPCTs) {
 					const decrypted = await decryptPCT(userA.privateKey, pct);
-					sum += decrypted[0];
 					decryptedAmountPCTs.push(decrypted[0]);
 				}
 
-				expect(sum).to.deep.equal(EXPECTED_BALANCE_AFTER_INITIAL_MINT);
-				userABalance = sum;
+				expect(totalBalance).to.deep.equal(EXPECTED_BALANCE_AFTER_INITIAL_MINT);
+				userABalance = totalBalance;
 
 				console.log(
 					"UserA Balance After Initial Mint",
 					userABalance,
 					"has",
 					amountPCTs.length,
-					"amount pcts in contract before generating burn proof and has 5 different amount pcts that have",
+					`amount pcts in contract before generating burn proof and has ${decryptedAmountPCTs.length} different amount pcts that have`,
 					decryptedAmountPCTs,
 				);
 			});
@@ -403,29 +383,23 @@ describe("EncryptedERC - Standalone", () => {
 					userA.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					userA.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
-				const expectedPoint = mulPointEscalar(
-					Base8,
-					EXPECTED_BALANCE_AFTER_MINT,
-				);
-
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
 
 				const amountPCTs = balance.amountPCTs;
+
 				const decryptedAmountPCTs = [];
-				let sum = 0n;
 				for (const [pct] of amountPCTs) {
 					const decrypted = await decryptPCT(userA.privateKey, pct);
-					sum += decrypted[0];
 					decryptedAmountPCTs.push(decrypted[0]);
 				}
 
-				expect(sum).to.deep.equal(EXPECTED_BALANCE_AFTER_MINT);
-				userABalance = sum;
+				expect(totalBalance).to.deep.equal(EXPECTED_BALANCE_AFTER_MINT);
+				userABalance = totalBalance;
 
 				console.log(
 					"UserA Balance After Second Mint",
@@ -434,7 +408,6 @@ describe("EncryptedERC - Standalone", () => {
 					amountPCTs.length,
 					"amount pcts in contract and has",
 					decryptedAmountPCTs,
-					"and balance pct is",
 				);
 			});
 
@@ -450,7 +423,6 @@ describe("EncryptedERC - Standalone", () => {
 					);
 
 				console.log("userA balance before burn", userABalance);
-
 				userABalance = userABalance - burnAmount;
 				console.log("userA balance after burn", userABalance);
 			});
@@ -462,34 +434,29 @@ describe("EncryptedERC - Standalone", () => {
 					userA.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					userA.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
-				const expectedPoint = mulPointEscalar(Base8, userABalance);
 
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
-
-				const balancePCT = balance.balancePCT;
 				const decryptedBalancePCT = await decryptPCT(
 					userA.privateKey,
-					balancePCT,
+					balance.balancePCT,
 				);
 
 				const amountPCTs = balance.amountPCTs;
 				const decryptedAmountPCTs = [];
-				let sum = 0n;
 				for (const [pct] of amountPCTs) {
 					const decrypted = await decryptPCT(userA.privateKey, pct);
-					sum += decrypted[0];
 					decryptedAmountPCTs.push(decrypted[0]);
 				}
 
 				console.log("decryptedAmountPCTs", decryptedAmountPCTs);
 
-				expect(sum + decryptedBalancePCT[0]).to.deep.equal(userABalance);
-				userABalance = sum + decryptedBalancePCT[0];
+				expect(totalBalance).to.deep.equal(userABalance);
+				userABalance = totalBalance;
 
 				console.log(
 					"UserA Balance After Burn",
@@ -535,32 +502,27 @@ describe("EncryptedERC - Standalone", () => {
 					userA.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					userA.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
-				const expectedPoint = mulPointEscalar(Base8, userABalance);
 
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
-
-				const balancePCT = balance.balancePCT;
 				const decryptedBalancePCT = await decryptPCT(
 					userA.privateKey,
-					balancePCT,
+					balance.balancePCT,
 				);
 
 				const amountPCTs = balance.amountPCTs;
 				const decryptedAmountPCTs = [];
-				let sum = 0n;
 				for (const [pct] of amountPCTs) {
 					const decrypted = await decryptPCT(userA.privateKey, pct);
-					sum += decrypted[0];
 					decryptedAmountPCTs.push(decrypted[0]);
 				}
 
-				expect(sum + decryptedBalancePCT[0]).to.deep.equal(userABalance);
-				userABalance = sum + decryptedBalancePCT[0];
+				expect(totalBalance).to.deep.equal(userABalance);
+				userABalance = totalBalance;
 
 				console.log(
 					"UserA Balance After Burn",
@@ -606,32 +568,27 @@ describe("EncryptedERC - Standalone", () => {
 					userA.signer.address,
 				);
 
-				const decryptedBalance = decryptPoint(
+				const totalBalance = await getDecryptedBalance(
 					userA.privateKey,
-					balance.eGCT.c1,
-					balance.eGCT.c2,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
 				);
-				const expectedPoint = mulPointEscalar(Base8, userABalance);
 
-				expect(decryptedBalance).to.deep.equal(expectedPoint);
-
-				const balancePCT = balance.balancePCT;
 				const decryptedBalancePCT = await decryptPCT(
 					userA.privateKey,
-					balancePCT,
+					balance.balancePCT,
 				);
 
 				const amountPCTs = balance.amountPCTs;
 				const decryptedAmountPCTs = [];
-				let sum = 0n;
 				for (const [pct] of amountPCTs) {
 					const decrypted = await decryptPCT(userA.privateKey, pct);
-					sum += decrypted[0];
 					decryptedAmountPCTs.push(decrypted[0]);
 				}
 
-				expect(sum + decryptedBalancePCT[0]).to.deep.equal(userABalance);
-				userABalance = sum + decryptedBalancePCT[0];
+				expect(totalBalance).to.deep.equal(userABalance);
+				userABalance = totalBalance;
 
 				console.log(
 					"UserA Balance After Burn",
@@ -657,28 +614,23 @@ describe("EncryptedERC - Standalone", () => {
 					sender.signer.address,
 				);
 
+				const totalBalance = await getDecryptedBalance(
+					sender.privateKey,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
+				);
+
 				const decryptedBalance = decryptPoint(
 					sender.privateKey,
 					balance.eGCT.c1,
 					balance.eGCT.c2,
 				);
 
-				const balancePCT = balance.balancePCT;
-				const decryptedBalancePCT = await decryptPCT(
-					sender.privateKey,
-					balancePCT,
-				);
-
-				senderBalance = decryptedBalancePCT[0];
-
-				for (const [pct] of balance.amountPCTs) {
-					const decrypted = await decryptPCT(sender.privateKey, pct);
-					senderBalance += decrypted[0];
-				}
-
-				const expectedPoint = mulPointEscalar(Base8, senderBalance);
+				const expectedPoint = mulPointEscalar(Base8, totalBalance);
 				expect(decryptedBalance).to.deep.equal(expectedPoint);
 
+				senderBalance = totalBalance;
 				console.log("Before transfer sender balance is", senderBalance);
 				console.log("Before transfer receiver balance is", 0n);
 			});
@@ -726,27 +678,21 @@ describe("EncryptedERC - Standalone", () => {
 					sender.signer.address,
 				);
 
+				const totalBalance = await getDecryptedBalance(
+					sender.privateKey,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
+				);
+
 				const decryptedBalance = decryptPoint(
 					sender.privateKey,
 					balance.eGCT.c1,
 					balance.eGCT.c2,
 				);
 
-				const balancePCT = balance.balancePCT;
-				const decryptedBalancePCT = await decryptPCT(
-					sender.privateKey,
-					balancePCT,
-				);
-
-				senderBalance = decryptedBalancePCT[0];
-
-				for (const [pct] of balance.amountPCTs) {
-					const decrypted = await decryptPCT(sender.privateKey, pct);
-					senderBalance += decrypted[0];
-				}
-
-				expect(senderBalance).to.equal(senderExpectedNewBalance);
-				const expectedPoint = mulPointEscalar(Base8, senderExpectedNewBalance);
+				expect(totalBalance).to.equal(senderExpectedNewBalance);
+				const expectedPoint = mulPointEscalar(Base8, totalBalance);
 				expect(decryptedBalance).to.deep.equal(expectedPoint);
 
 				console.log("After transfer sender balance is", senderBalance);
@@ -759,33 +705,24 @@ describe("EncryptedERC - Standalone", () => {
 					receiver.signer.address,
 				);
 
+				const totalBalance = await getDecryptedBalance(
+					receiver.privateKey,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
+				);
+
 				const decryptedBalance = decryptPoint(
 					receiver.privateKey,
 					balance.eGCT.c1,
 					balance.eGCT.c2,
 				);
 
-				const balancePCT = balance.balancePCT;
-				let receiverBalance = 0n;
-
-				if (balancePCT.some((elem) => elem !== 0n)) {
-					const decryptedBalancePCT = await decryptPCT(
-						receiver.privateKey,
-						balancePCT,
-					);
-					receiverBalance = decryptedBalancePCT[0];
-				}
-
-				for (const [pct] of balance.amountPCTs) {
-					const decrypted = await decryptPCT(receiver.privateKey, pct);
-					receiverBalance += decrypted[0];
-				}
-
-				expect(receiverBalance).to.equal(transferAmount); // ?
-				const expectedPoint = mulPointEscalar(Base8, receiverBalance);
+				expect(totalBalance).to.equal(transferAmount); // ?
+				const expectedPoint = mulPointEscalar(Base8, totalBalance);
 				expect(decryptedBalance).to.deep.equal(expectedPoint);
 
-				console.log("After transfer receiver balance is", receiverBalance);
+				console.log("After transfer receiver balance is", totalBalance);
 			});
 		});
 	});
