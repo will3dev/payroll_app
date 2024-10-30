@@ -13,15 +13,21 @@ struct CreateEncryptedERCParams {
     string _symbol;
     // verifiers
     address _mintVerifier;
+    address _burnVerifier;
+}
+
+struct AmountPCT {
+    uint256[7] pct;
+    uint256 index;
 }
 
 struct EncryptedBalance {
     EGCT eGCT;
     mapping(uint256 index => BalanceHistory history) balanceList;
     uint256 nonce;
-    uint256 nextBalanceIndex;
+    uint256 transactionIndex;
     uint256[7] balancePCT; // user balance pcts
-    uint256[7][] amountPCTs; // user amount pcts
+    AmountPCT[] amountPCTs; // user amount pcts
 }
 
 struct BalanceHistory {
