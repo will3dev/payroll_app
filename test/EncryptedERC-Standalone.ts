@@ -22,7 +22,7 @@ import {
 } from "./helpers";
 import { User } from "./user";
 
-describe("EncryptedERC", () => {
+describe("EncryptedERC - Standalone", () => {
 	let registrar: Registrar;
 	let users: User[];
 	let signers: SignerWithAddress[];
