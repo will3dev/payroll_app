@@ -14,6 +14,7 @@ import {
 	BurnVerifier__factory,
 	MintVerifier__factory,
 	RegistrationVerifier__factory,
+	TransferVerifier__factory,
 } from "../typechain-types/factories/contracts/verifiers";
 import type { User } from "./user";
 
@@ -32,10 +33,15 @@ export const deployVerifiers = async (signer: SignerWithAddress) => {
 	const burnVerifier = await burnVerifierFactory.deploy();
 	await burnVerifier.waitForDeployment();
 
+	const transferVerifierFactory = new TransferVerifier__factory(signer);
+	const transferVerifier = await transferVerifierFactory.deploy();
+	await transferVerifier.waitForDeployment();
+
 	return {
 		registrationVerifier: registrationVerifier.target.toString(),
 		mintVerifier: mintVerifier.target.toString(),
 		burnVerifier: burnVerifier.target.toString(),
+		transferVerifier: transferVerifier.target.toString(),
 	};
 };
 
@@ -61,25 +67,8 @@ export const generateGnarkProof = async (
 ): Promise<string[]> => {
 	const outputPath = path.join(__dirname, `${type}.output.json`);
 
-	let pkPath = "";
-	let csPath = "";
-
-	switch (type) {
-		case "REGISTER":
-			pkPath = path.join(__dirname, "../", "build", "register.pk");
-			csPath = path.join(__dirname, "../", "build", "register.r1cs");
-			break;
-		case "MINT":
-			pkPath = path.join(__dirname, "../", "build", "mint.pk");
-			csPath = path.join(__dirname, "../", "build", "mint.r1cs");
-			break;
-		case "BURN":
-			pkPath = path.join(__dirname, "../", "build", "burn.pk");
-			csPath = path.join(__dirname, "../", "build", "burn.r1cs");
-			break;
-		default:
-			break;
-	}
+	const pkPath = path.join(__dirname, "../", "build", `${type}.pk`);
+	const csPath = path.join(__dirname, "../", "build", `${type}.r1cs`);
 
 	const executableName = "encryptedERC";
 	const executable = path.join(__dirname, "../", "zk", "build", executableName);
@@ -213,6 +202,92 @@ export const privateBurn = async (
 			...userCiphertext.map(String),
 			...userAuthKey.map(String),
 			userNonce.toString(),
+		],
+	};
+};
+
+export const privateTransfer = async (
+	sender: User,
+	senderBalance: bigint,
+	receiver: User,
+	transferAmount: bigint,
+	senderEncryptedBalance: bigint[],
+	auditorPublicKey: bigint[],
+) => {
+	const senderNewBalance = senderBalance - transferAmount;
+	// 1. encrypt the transfer amount with el-gamal for sender
+	const { cipher: encryptedAmountSender, random: encryptedAmountSenderRandom } =
+		encryptMessage(sender.publicKey, transferAmount);
+
+	// 2. encrypt the transfer amount with el-gamal for receiver
+	const {
+		cipher: encryptedAmountReceiver,
+		random: encryptedAmountReceiverRandom,
+	} = encryptMessage(receiver.publicKey, transferAmount);
+
+	// 3. creates a pct for receiver with the transfer amount
+	const {
+		ciphertext: receiverCiphertext,
+		nonce: receiverNonce,
+		authKey: receiverAuthKey,
+		encRandom: receiverEncRandom,
+	} = processPoseidonEncryption([transferAmount], receiver.publicKey);
+
+	// 4. creates a pct for auditor with the transfer amount
+	const {
+		ciphertext: auditorCiphertext,
+		nonce: auditorNonce,
+		authKey: auditorAuthKey,
+		encRandom: auditorEncRandom,
+	} = processPoseidonEncryption([transferAmount], auditorPublicKey);
+
+	// 5. create pct for the sender with the newly calculated balance
+	const {
+		ciphertext: senderCiphertext,
+		nonce: senderNonce,
+		authKey: senderAuthKey,
+	} = processPoseidonEncryption([senderNewBalance], sender.publicKey);
+
+	const publicInputs = [
+		...sender.publicKey.map(String),
+		...senderEncryptedBalance.map(String),
+		...encryptedAmountSender[0].map(String),
+		...encryptedAmountSender[1].map(String),
+		...receiver.publicKey.map(String),
+		...encryptedAmountReceiver[0].map(String),
+		...encryptedAmountReceiver[1].map(String),
+		...receiverCiphertext.map(String),
+		...receiverAuthKey.map(String),
+		receiverNonce.toString(),
+		...auditorPublicKey.map(String),
+		...auditorCiphertext.map(String),
+		...auditorAuthKey.map(String),
+		auditorNonce.toString(),
+	];
+
+	const privateInputs = [
+		formatPrivKeyForBabyJub(sender.privateKey).toString(),
+		senderBalance.toString(),
+		encryptedAmountReceiverRandom.toString(),
+		receiverEncRandom.toString(),
+		auditorEncRandom.toString(),
+		transferAmount.toString(),
+	];
+
+	const input = {
+		privateInputs,
+		publicInputs,
+	};
+
+	const proof = await generateGnarkProof("TRANSFER", JSON.stringify(input));
+
+	return {
+		proof,
+		publicInputs,
+		senderBalancePCT: [
+			...senderCiphertext.map(String),
+			...senderAuthKey.map(String),
+			senderNonce.toString(),
 		],
 	};
 };

@@ -11,6 +11,7 @@ import {UserNotRegistered, UnauthorizedAccess, AuditorKeyNotSet, InvalidProof, I
 import {IRegistrar} from "./interfaces/IRegistrar.sol";
 import {IMintVerifier} from "./interfaces/verifiers/IMintVerifier.sol";
 import {IBurnVerifier} from "./interfaces/verifiers/IBurnVerifier.sol";
+import {ITransferVerifier} from "./interfaces/verifiers/ITransferVerifier.sol";
 
 contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
     // registrar contract
@@ -19,6 +20,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
     // verifiers
     IMintVerifier public mintVerifier;
     IBurnVerifier public burnVerifier;
+    ITransferVerifier public transferVerifier;
 
     // token name and symbol
     string public name;
@@ -44,6 +46,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
 
         mintVerifier = IMintVerifier(params._mintVerifier);
         burnVerifier = IBurnVerifier(params._burnVerifier);
+        transferVerifier = ITransferVerifier(params._transferVerifier);
     }
 
     ///////////////////////////////////////////////////
@@ -73,6 +76,18 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
      * @dev Emitted when a private burn is done
      */
     event PrivateBurn(address indexed user, uint256[7] auditorPCT);
+
+    /**
+     * @param from Address of the sender
+     * @param to Address of the receiver
+     * @param auditorPCT Auditor PCT
+     * @dev Emitted when a private transfer is done
+     */
+    event PrivateTransfer(
+        address indexed from,
+        address indexed to,
+        uint256[7] auditorPCT
+    );
 
     ///////////////////////////////////////////////////
     ///                   Public                    ///
@@ -154,6 +169,58 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         burnVerifier.verifyProof(proof, input);
 
         _privateBurn(_user, input, _balancePCT);
+    }
+
+    function transfer(
+        address _to,
+        uint256 _tokenId,
+        uint256[8] calldata proof,
+        uint256[32] calldata input,
+        uint256[7] calldata _balancePCT
+    ) external {
+        address _from = msg.sender;
+        if (!isAuditorKeySet()) {
+            revert AuditorKeyNotSet();
+        }
+
+        {
+            // check if the from user is registered
+            if (
+                !registrar.isUserRegistered(_from) ||
+                !registrar.isUserRegistered(_to)
+            ) {
+                revert UserNotRegistered();
+            }
+        }
+
+        {
+            // sender & receiver public key should match
+            uint256[2] memory fromPublicKey = registrar.getUserPublicKey(_from);
+            uint256[2] memory toPublicKey = registrar.getUserPublicKey(_to);
+
+            if (
+                fromPublicKey[0] != input[0] ||
+                fromPublicKey[1] != input[1] ||
+                toPublicKey[0] != input[10] ||
+                toPublicKey[1] != input[11]
+            ) {
+                revert InvalidProof();
+            }
+        }
+
+        {
+            // auditor public key should match
+            if (
+                auditorPublicKey.X != input[23] ||
+                auditorPublicKey.Y != input[24]
+            ) {
+                revert InvalidProof();
+            }
+        }
+
+        transferVerifier.verifyProof(proof, input);
+
+        _transfer(_from, _to, _tokenId, input, _balancePCT);
     }
 
     /**
@@ -260,5 +327,66 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         }
 
         emit PrivateBurn(_user, auditorPCT);
+    }
+
+    function _transfer(
+        address _from,
+        address _to,
+        uint256 _tokenId,
+        uint256[32] calldata input,
+        uint256[7] calldata _balancePCT
+    ) internal {
+        {
+            EGCT memory providedBalance = EGCT({
+                c1: Point({X: input[2], Y: input[3]}),
+                c2: Point({X: input[4], Y: input[5]})
+            });
+
+            uint256 balanceHash = _hashEGCT(providedBalance);
+            (bool isValid, uint256 transactionIndex) = _isBalanceValid(
+                _from,
+                _tokenId,
+                balanceHash
+            );
+            if (!isValid) {
+                revert InvalidProof();
+            }
+
+            EGCT memory fromEncryptedAmount = EGCT({
+                c1: Point({X: input[6], Y: input[7]}),
+                c2: Point({X: input[8], Y: input[9]})
+            });
+
+            _subtractFromUserBalance(
+                _from,
+                _tokenId,
+                fromEncryptedAmount,
+                _balancePCT,
+                transactionIndex
+            );
+        }
+
+        {
+            EGCT memory toEncryptedAmount = EGCT({
+                c1: Point({X: input[12], Y: input[13]}),
+                c2: Point({X: input[14], Y: input[15]})
+            });
+
+            uint256[7] memory amountPCT;
+            for (uint256 i = 0; i < 7; i++) {
+                amountPCT[i] = input[16 + i];
+            }
+
+            _addToUserBalance(_to, _tokenId, toEncryptedAmount, amountPCT);
+        }
+
+        {
+            uint256[7] memory auditorPCT;
+            for (uint256 i = 0; i < 7; i++) {
+                auditorPCT[i] = input[25 + i];
+            }
+
+            emit PrivateTransfer(_from, _to, auditorPCT);
+        }
     }
 }
