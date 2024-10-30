@@ -1,6 +1,6 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
-import "hardhat-gas-reporter";
+import "solidity-coverage";
 
 const config: HardhatUserConfig = {
 	solidity: {
@@ -11,11 +11,6 @@ const config: HardhatUserConfig = {
 				runs: 200,
 			},
 		},
-	},
-	gasReporter: {
-		enabled: false,
-		L1: "avalanche",
-		darkMode: true,
 	},
 };
 

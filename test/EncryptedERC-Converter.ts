@@ -318,6 +318,12 @@ describe("EncryptedERC - Converter", () => {
 					userEncryptedBalance = totalBalance;
 				}
 			});
+
+			// this test should be here because it needs the encryptedERC to be initialized and deposit to be done
+			it("get tokens should return the proper addresses", async () => {
+				const contractTokens = await encryptedERC.getTokens();
+				expect(contractTokens).to.deep.equal([erc20.target]);
+			});
 		});
 
 		describe("Transferring Tokens", () => {
