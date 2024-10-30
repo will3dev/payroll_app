@@ -18,6 +18,7 @@ import {
 	deployVerifiers,
 	generateGnarkProof,
 	getDecryptedBalance,
+	privateTransfer,
 } from "./helpers";
 import { User } from "./user";
 
@@ -316,6 +317,75 @@ describe("EncryptedERC - Converter", () => {
 					);
 					userEncryptedBalance = totalBalance;
 				}
+			});
+		});
+
+		describe("Transferring Tokens", () => {
+			let senderBalance = 30070n; // hardcoded for now from the deposit test
+			const transferAmount = 1000n;
+
+			it("should transfer tokens properly", async () => {
+				const sender = users[0];
+				const receiver = users[1];
+
+				const balance = await encryptedERC.balanceOf(sender.signer.address, 1);
+				const senderEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
+
+				const { proof, publicInputs, senderBalancePCT } = await privateTransfer(
+					sender,
+					senderBalance,
+					receiver,
+					transferAmount,
+					senderEncryptedBalance,
+					auditorPublicKey,
+				);
+
+				expect(
+					await encryptedERC
+						.connect(sender.signer)
+						.transfer(
+							receiver.signer.address,
+							1n,
+							proof,
+							publicInputs,
+							senderBalancePCT,
+						),
+				).to.be.not.reverted;
+
+				senderBalance = senderBalance - transferAmount;
+			});
+
+			it("sender balance should be updated properly", async () => {
+				const sender = users[0];
+
+				const balance = await encryptedERC.balanceOf(sender.signer.address, 1);
+
+				const totalBalance = await getDecryptedBalance(
+					sender.privateKey,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
+				);
+
+				expect(totalBalance).to.equal(senderBalance);
+			});
+
+			it("receiver balance should be updated properly", async () => {
+				const receiver = users[1];
+
+				const balance = await encryptedERC.balanceOf(
+					receiver.signer.address,
+					1,
+				);
+
+				const totalBalance = await getDecryptedBalance(
+					receiver.privateKey,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
+				);
+
+				expect(totalBalance).to.equal(transferAmount);
 			});
 		});
 	});
