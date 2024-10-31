@@ -7,3 +7,5 @@ error UnauthorizedAccess();
 error AuditorKeyNotSet();
 error InvalidProof();
 error InvalidOperation();
+error TransferFailed();
+error TokenDecimalsTooLow(uint8 decimals);
