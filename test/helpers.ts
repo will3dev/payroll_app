@@ -341,6 +341,7 @@ export const getDecryptedBalance = async (
 		encryptedBalance[0],
 		encryptedBalance[1],
 	);
+
 	if (totalBalance !== 0n) {
 		const expectedPoint = mulPointEscalar(Base8, totalBalance);
 		expect(decryptedBalance).to.deep.equal(expectedPoint);

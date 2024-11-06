@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.27;
-
 // contracts
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TokenTracker} from "./TokenTracker.sol";
@@ -10,7 +9,7 @@ import {EncryptedUserBalances} from "./EncryptedUserBalances.sol";
 import {BabyJubJub} from "./libraries/BabyJubJub.sol";
 
 // types
-import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance} from "./types/Types.sol";
+import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance, AmountPCT} from "./types/Types.sol";
 
 // errors
 import {UserNotRegistered, UnauthorizedAccess, AuditorKeyNotSet, InvalidProof, InvalidOperation, TransferFailed, TokenDecimalsTooLow} from "./errors/Errors.sol";
@@ -36,8 +35,8 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
     string public name;
     string public symbol;
 
-    // 2 decimal places
-    uint256 public constant decimals = 2;
+    // token decimals
+    uint8 public decimals;
 
     // auditor
     Point public auditorPublicKey = Point({X: 0, Y: 0});
@@ -53,6 +52,8 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
             name = params._name;
             symbol = params._symbol;
         }
+
+        decimals = params._decimals;
 
         mintVerifier = IMintVerifier(params._mintVerifier);
         burnVerifier = IBurnVerifier(params._burnVerifier);
@@ -442,7 +443,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
     function deposit(
         uint256 _amount,
         address _tokenAddress,
-        uint256[7] memory balancePCT
+        uint256[7] memory _amountPCT
     ) public {
         // revert if auditor key is not set
         if (!isAuditorKeySet()) {
@@ -464,13 +465,12 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
             revert UserNotRegistered();
         }
 
-        bool success = token.transferFrom(msg.sender, address(this), _amount);
-        if (!success) {
-            revert TransferFailed();
-        }
+        // this function reverts if the transfer fails
+        token.transferFrom(to, address(this), _amount);
 
-        (dust, tokenId) = _convertFrom(to, _amount, _tokenAddress, balancePCT);
+        (dust, tokenId) = _convertFrom(to, _amount, _tokenAddress, _amountPCT);
 
+        // transfer the dust back to the user
         token.transfer(to, dust);
 
         emit Deposit(to, _amount, dust, tokenId);
@@ -494,24 +494,35 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         address _to,
         uint256 _amount,
         address _tokenAddress,
-        uint256[7] memory balancePCT
+        uint256[7] memory _amountPCT
     ) internal returns (uint256 dust, uint256 tokenId) {
         uint8 tokenDecimals = IERC20Metadata(_tokenAddress).decimals();
 
-        if (tokenDecimals < decimals) {
-            revert TokenDecimalsTooLow(tokenDecimals);
+        uint256 value;
+        if (tokenDecimals > decimals) {
+            // scale up
+            uint256 scalingFactor = 10 ** (tokenDecimals - decimals);
+            value = _amount / scalingFactor;
+            dust = _amount % scalingFactor;
+        } else if (tokenDecimals < decimals) {
+            // scale down
+            uint256 scalingFactor = 10 ** (decimals - tokenDecimals);
+            value = _amount * scalingFactor;
+            dust = 0;
+        } else {
+            // no scaling needed
+            value = _amount;
+            dust = 0;
         }
-
-        uint256 scalingFactor = 10 ** (tokenDecimals - decimals);
-        uint256 value = _amount / scalingFactor;
-        dust = _amount % scalingFactor;
-
-        // Check if it's a new token
+        // check if it's a new token
         if (tokenIds[_tokenAddress] == 0) {
             _addToken(_tokenAddress);
         }
-
         tokenId = tokenIds[_tokenAddress];
+
+        if (value == 0) {
+            return (dust, tokenId);
+        }
 
         {
             uint256[2] memory publicKey = registrar.getUserPublicKey(_to);
@@ -530,8 +541,12 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
                 balance.eGCT.c2 = BabyJubJub._add(balance.eGCT.c2, _eGCT.c2);
             }
 
+            balance.amountPCTs.push(
+                AmountPCT({pct: _amountPCT, index: balance.transactionIndex})
+            );
+            balance.transactionIndex++;
+
             _commitUserBalance(_to, tokenId);
-            balance.balancePCT = balancePCT;
         }
 
         return (dust, tokenId);
