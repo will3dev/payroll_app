@@ -39,7 +39,7 @@ describe("EncryptedERC - Standalone", () => {
 		const {
 			registrationVerifier,
 			mintVerifier,
-			burnVerifier,
+			withdrawVerifier,
 			transferVerifier,
 		} = await deployVerifiers(owner);
 		const babyJubJub = await deployLibrary(owner);
@@ -60,7 +60,7 @@ describe("EncryptedERC - Standalone", () => {
 			_name: "Test",
 			_symbol: "TEST",
 			_mintVerifier: mintVerifier,
-			_burnVerifier: burnVerifier,
+			_withdrawVerifier: withdrawVerifier,
 			_transferVerifier: transferVerifier,
 			_decimals: DECIMALS,
 		});
@@ -237,6 +237,18 @@ describe("EncryptedERC - Standalone", () => {
 					),
 				).to.be.revertedWithCustomError(encryptedERC, "InvalidOperation");
 			});
+
+			it("should revert if user try to withdraw", async () => {
+				await expect(
+					encryptedERC.connect(users[0].signer).withdraw(
+						1000n,
+						1n,
+						Array.from({ length: 8 }, () => 1n),
+						Array.from({ length: 20 }, () => 1n),
+						Array.from({ length: 7 }, () => 1n),
+					),
+				).to.be.revertedWithCustomError(encryptedERC, "InvalidOperation");
+			});
 		});
 
 		describe("Private Mint", () => {
@@ -363,12 +375,22 @@ describe("EncryptedERC - Standalone", () => {
 				);
 
 				const userEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
+				const userDecryptedBalance = await getDecryptedBalance(
+					user.privateKey,
+					balance.amountPCTs,
+					balance.balancePCT,
+					balance.eGCT,
+				);
 
-				const { proof, publicInputs, userBalancePCT } = await privateBurn(
-					burnAmount,
+				const {
+					proof,
+					publicInputs,
+					senderBalancePCT: userBalancePCT,
+				} = await privateBurn(
 					user,
+					userDecryptedBalance,
+					burnAmount,
 					userEncryptedBalance,
-					userBalance,
 					auditorPublicKey,
 				);
 
@@ -443,10 +465,10 @@ describe("EncryptedERC - Standalone", () => {
 				const _proof = validParams.proof;
 				const _publicInputs = [...validParams.publicInputs];
 
-				// auditor public key indexes are 10 and 11
-				// only change [10]
-				_publicInputs[10] = "100";
-				_publicInputs[11] = validParams.publicInputs[11];
+				// auditor public key indexes are 23 and 24
+				// only change [23]
+				_publicInputs[23] = "100";
+				_publicInputs[24] = validParams.publicInputs[24];
 
 				await expect(
 					encryptedERC
@@ -454,9 +476,9 @@ describe("EncryptedERC - Standalone", () => {
 						.privateBurn(_proof, _publicInputs, validParams.userBalancePCT),
 				).to.be.reverted;
 
-				// only change [14]
-				_publicInputs[10] = validParams.publicInputs[10];
-				_publicInputs[11] = "100";
+				// only change [24]
+				_publicInputs[23] = validParams.publicInputs[23];
+				_publicInputs[24] = "100";
 
 				await expect(
 					encryptedERC
@@ -485,7 +507,7 @@ describe("EncryptedERC - Standalone", () => {
 			let burnProof: {
 				proof: string[];
 				publicInputs: string[];
-				userBalancePCT: string[];
+				senderBalancePCT: string[];
 			};
 
 			it("0. owner mints some tokens to userA", async () => {
@@ -551,15 +573,15 @@ describe("EncryptedERC - Standalone", () => {
 
 				const userEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
 
-				const { proof, publicInputs, userBalancePCT } = await privateBurn(
-					burnAmount,
+				const { proof, publicInputs, senderBalancePCT } = await privateBurn(
 					userA,
-					userEncryptedBalance,
 					userABalance,
+					burnAmount,
+					userEncryptedBalance,
 					auditorPublicKey,
 				);
 
-				burnProof = { proof, publicInputs, userBalancePCT };
+				burnProof = { proof, publicInputs, senderBalancePCT };
 			});
 
 			it("2. owner mints some tokens to userA repeatedly so userA's amount PCTs are updated", async () => {
@@ -623,7 +645,7 @@ describe("EncryptedERC - Standalone", () => {
 					.privateBurn(
 						burnProof.proof,
 						burnProof.publicInputs,
-						burnProof.userBalancePCT,
+						burnProof.senderBalancePCT,
 					);
 
 				console.log("userA balance before burn", userABalance);
@@ -682,17 +704,17 @@ describe("EncryptedERC - Standalone", () => {
 
 				const userEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
 
-				const { proof, publicInputs, userBalancePCT } = await privateBurn(
-					burnAmount,
+				const { proof, publicInputs, senderBalancePCT } = await privateBurn(
 					userA,
-					userEncryptedBalance,
 					userABalance,
+					burnAmount,
+					userEncryptedBalance,
 					auditorPublicKey,
 				);
 
 				await encryptedERC
 					.connect(userA.signer)
-					.privateBurn(proof, publicInputs, userBalancePCT);
+					.privateBurn(proof, publicInputs, senderBalancePCT);
 
 				console.log("userA balance before burn", userABalance);
 				userABalance = userABalance - burnAmount;
@@ -748,17 +770,17 @@ describe("EncryptedERC - Standalone", () => {
 
 				const userEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
 
-				const { proof, publicInputs, userBalancePCT } = await privateBurn(
-					burnAmount,
+				const { proof, publicInputs, senderBalancePCT } = await privateBurn(
 					userA,
-					userEncryptedBalance,
 					userABalance,
+					burnAmount,
+					userEncryptedBalance,
 					auditorPublicKey,
 				);
 
 				await encryptedERC
 					.connect(userA.signer)
-					.privateBurn(proof, publicInputs, userBalancePCT);
+					.privateBurn(proof, publicInputs, senderBalancePCT);
 
 				console.log("userA balance before burn", userABalance);
 				userABalance = userABalance - burnAmount;
@@ -856,7 +878,7 @@ describe("EncryptedERC - Standalone", () => {
 				const { proof, publicInputs, senderBalancePCT } = await privateTransfer(
 					sender,
 					senderBalance,
-					receiver,
+					receiver.publicKey,
 					transferAmount,
 					[
 						...senderEncryptedBalance.eGCT.c1,
