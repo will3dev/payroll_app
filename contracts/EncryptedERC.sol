@@ -435,6 +435,34 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
     ///////////////////////////////////////////////////
 
     /**
+     * @param _user Address of the user
+     * @param _tokenAddress Token address
+     * @return eGCT Elgamal Ciphertext
+     * @return nonce Nonce
+     * @return amountPCTs Amount PCTs
+     * @return balancePCT Balance PCT
+     * @return transactionIndex Transaction index
+     * @dev returns the corresponding balance for the token address
+     */
+    function getBalanceFromTokenAddress(
+        address _user,
+        address _tokenAddress
+    )
+        public
+        view
+        returns (
+            EGCT memory eGCT,
+            uint256 nonce,
+            AmountPCT[] memory amountPCTs,
+            uint256[7] memory balancePCT,
+            uint256 transactionIndex
+        )
+    {
+        uint256 tokenId = tokenIds[_tokenAddress];
+        return balanceOf(_user, tokenId);
+    }
+
+    /**
      *
      * @param _amount Amount to deposit
      * @param _tokenAddress Token address
@@ -490,7 +518,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         uint256 _amount,
         uint256 _tokenId,
         uint256[8] calldata proof,
-        uint256[20] calldata input,
+        uint256[16] calldata input,
         uint256[7] memory _balancePCT
     ) public {
         address from = msg.sender;
@@ -510,7 +538,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
 
         {
             // _amount should match with the amount in the proof
-            if (_amount != input[19]) {
+            if (_amount != input[15]) {
                 revert InvalidProof();
             }
         }
@@ -518,8 +546,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         {
             // auditor public key should match
             if (
-                auditorPublicKey.X != input[10] ||
-                auditorPublicKey.Y != input[11]
+                auditorPublicKey.X != input[6] || auditorPublicKey.Y != input[7]
             ) {
                 revert InvalidProof();
             }
@@ -533,18 +560,25 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         {
             uint256[7] memory auditorPCT;
             for (uint256 i = 0; i < 7; i++) {
-                auditorPCT[i] = input[12 + i];
+                auditorPCT[i] = input[8 + i];
             }
 
             emit Withdraw(from, _amount, _tokenId);
         }
     }
 
+    /**
+     * @param _from Address of the sender
+     * @param _amount Amount to withdraw
+     * @param _tokenId Token ID
+     * @param input Public inputs for the proof
+     * @param _balancePCT Balance PCT
+     */
     function _withdraw(
         address _from,
         uint256 _amount,
         uint256 _tokenId,
-        uint256[20] calldata input,
+        uint256[16] calldata input,
         uint256[7] memory _balancePCT
     ) internal {
         address tokenAddress = tokenAddresses[_tokenId];
@@ -569,10 +603,10 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
                 revert InvalidProof();
             }
 
-            EGCT memory encryptedWithdrawnAmount = EGCT({
-                c1: Point({X: input[6], Y: input[7]}),
-                c2: Point({X: input[8], Y: input[9]})
-            });
+            EGCT memory encryptedWithdrawnAmount = BabyJubJub.encrypt(
+                Point({X: input[0], Y: input[1]}),
+                _amount
+            );
 
             _subtractFromUserBalance(
                 _from,
@@ -656,6 +690,13 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
         return (dust, tokenId);
     }
 
+    /**
+     * @param _to Address of the receiver
+     * @param _amount Amount to convert
+     * @param _tokenAddress Token address
+     *
+     * @dev Converts the encrypted ERC20 token to the ERC20 token
+     */
     function _convertTo(
         address _to,
         uint256 _amount,
