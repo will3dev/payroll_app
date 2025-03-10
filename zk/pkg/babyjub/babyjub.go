@@ -23,8 +23,6 @@ func NewBjWrapper(api frontend.API, curveId tedwards.ID) *BjWrapper {
 	}
 
 	// Set the order of the babyjub curve
-	order, _ := big.NewInt(0).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
-
 	basePointOrder, _ := big.NewInt(0).SetString("2736030358979909402780800718157159386076813972158567259200215660948447373041", 10)
 
 	// Set the x and y coordinates for the base point (base8) of the babyjub curve
@@ -34,8 +32,6 @@ func NewBjWrapper(api frontend.API, curveId tedwards.ID) *BjWrapper {
 	// Set the curve parameters for the babyjub curve being used
 	curve.Params().A = big.NewInt(168700)
 	curve.Params().D = big.NewInt(168696)
-	curve.Params().Cofactor = big.NewInt(8)
-	curve.Params().Order = order
 	curve.Params().Base = [2]*big.Int{baseX, baseY}
 
 	return &BjWrapper{
