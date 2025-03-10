@@ -9,9 +9,10 @@ import (
 )
 
 type BjWrapper struct {
-	Curve twistededwards.Curve
-	api   frontend.API
-	base8 twistededwards.Point
+	Curve          twistededwards.Curve
+	BasePointOrder *big.Int
+	api            frontend.API
+	base8          twistededwards.Point
 }
 
 // creates new wrapper for babyjub curve operations
@@ -23,6 +24,8 @@ func NewBjWrapper(api frontend.API, curveId tedwards.ID) *BjWrapper {
 
 	// Set the order of the babyjub curve
 	order, _ := big.NewInt(0).SetString("21888242871839275222246405745257275088548364400416034343698204186575808495617", 10)
+
+	basePointOrder, _ := big.NewInt(0).SetString("2736030358979909402780800718157159386076813972158567259200215660948447373041", 10)
 
 	// Set the x and y coordinates for the base point (base8) of the babyjub curve
 	baseX, _ := big.NewInt(0).SetString("5299619240641551281634865583518297030282874472190772894086521144482721001553", 10)
@@ -36,9 +39,10 @@ func NewBjWrapper(api frontend.API, curveId tedwards.ID) *BjWrapper {
 	curve.Params().Base = [2]*big.Int{baseX, baseY}
 
 	return &BjWrapper{
-		Curve: curve,
-		api:   api,
-		base8: twistededwards.Point{X: frontend.Variable(baseX), Y: frontend.Variable(baseY)},
+		Curve:          curve,
+		BasePointOrder: basePointOrder,
+		api:            api,
+		base8:          twistededwards.Point{X: frontend.Variable(baseX), Y: frontend.Variable(baseY)},
 	}
 }
 

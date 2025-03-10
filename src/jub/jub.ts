@@ -12,6 +12,8 @@ import {
 	poseidonEncrypt,
 } from "maci-crypto";
 
+const BASE_POINT_ORDER = 2736030358979909402780800718157159386076813972158567259200215660948447373041n;
+
 // el-gamal decryption
 export const decryptPoint = (
 	privateKey: bigint,
@@ -43,11 +45,15 @@ export const encryptMessage = (
 	message: bigint,
 	random = genRandomBabyJubValue(),
 ): { cipher: [bigint[], bigint[]]; random: bigint } => {
+	let encRandom = random;
+	if (encRandom >= BASE_POINT_ORDER) {
+		encRandom = genRandomBabyJubValue() / 100n;
+	}
 	const p = mulPointEscalar(Base8, message);
 
 	return {
-		cipher: encryptPoint(publicKey, p, random),
-		random,
+		cipher: encryptPoint(publicKey, p, encRandom),
+		random: encRandom,
 	};
 };
 
@@ -60,7 +66,11 @@ export const processPoseidonEncryption = (
 	publicKey: bigint[],
 ) => {
 	const nonce = randomNonce();
-	const encRandom = genRandomBabyJubValue();
+
+	let encRandom = genRandomBabyJubValue();
+	if (encRandom >= BASE_POINT_ORDER) {
+		encRandom = genRandomBabyJubValue() / 10n;
+	}
 
 	const poseidonEncryptionKey = mulPointEscalar(
 		publicKey as Point<bigint>,

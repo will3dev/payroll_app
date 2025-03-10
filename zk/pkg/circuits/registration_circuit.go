@@ -15,6 +15,6 @@ func (circuit *RegistrationCircuit) Define(api frontend.API) error {
 	babyjub := babyjub.NewBjWrapper(api, tedwards.BN254)
 
 	// Verify that the sender's public key is well-formed
-	CheckRegistrationPublicKey(api, babyjub, circuit.Sender)
+	CheckPublicKey(api, babyjub, circuit.Sender)
 	return nil
 }
