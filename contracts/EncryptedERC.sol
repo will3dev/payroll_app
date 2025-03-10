@@ -531,7 +531,6 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
     }
 
     /**
-     * @param _amount Amount to withdraw
      * @param _tokenId Token ID
      * @param proof Proof
      * @param input Public inputs for the proof
@@ -540,13 +539,13 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
      * @dev Withdraws the encrypted amount to the ERC20 token
      */
     function withdraw(
-        uint256 _amount,
         uint256 _tokenId,
         uint256[8] calldata proof,
         uint256[16] calldata input,
         uint256[7] memory _balancePCT
     ) public {
         address from = msg.sender;
+        uint256 _amount = input[15];
 
         // revert if contract is not a converter
         if (!isConverter) {
@@ -557,13 +556,6 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
             // public key should match
             uint256[2] memory publicKey = registrar.getUserPublicKey(from);
             if (publicKey[0] != input[0] || publicKey[1] != input[1]) {
-                revert InvalidProof();
-            }
-        }
-
-        {
-            // _amount should match with the amount in the proof
-            if (_amount != input[15]) {
                 revert InvalidProof();
             }
         }
