@@ -11,8 +11,10 @@ import {
 	poseidonDecrypt,
 	poseidonEncrypt,
 } from "maci-crypto";
+import { randomBytes } from "crypto";
 
 const BASE_POINT_ORDER = 2736030358979909402780800718157159386076813972158567259200215660948447373041n;
+
 
 // el-gamal decryption
 export const decryptPoint = (
@@ -57,9 +59,10 @@ export const encryptMessage = (
 	};
 };
 
-// generate a random bigint between 1 and 2^128
-export const randomNonce = (): bigint =>
-	BigInt(Math.floor(Math.random() * Number(2n ** 128n - 1n)) + 1);
+export const randomNonce = (): bigint => {
+	const bytes = randomBytes(16);
+	return BigInt("0x" + bytes.toString("hex")) + 1n;
+};
 
 export const processPoseidonEncryption = (
 	inputs: bigint[],
