@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ava-labs/EncryptedERC/pkg/circuits"
-	"github.com/ava-labs/EncryptedERC/pkg/utils"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -102,7 +101,6 @@ func TestRegistration() {
 
 func TestTransfer() {
 
-	utils.TestTransfer()
 	// Generate a proof for the registration circuit
 
 	// assignment := circuits.TransferCircuit{

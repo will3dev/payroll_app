@@ -10,7 +10,7 @@ func poseidonDecrypt(
 	nonce frontend.Variable,
 	cipherText []frontend.Variable,
 ) []frontend.Variable {
-	l := decryptedLength
+	length := decryptedLength
 	for decryptedLength%3 != 0 {
 		decryptedLength += 1
 	}
@@ -26,7 +26,7 @@ func poseidonDecrypt(
 
 	strategies[0] = PoseidonEx(
 		api,
-		[]frontend.Variable{encryptionKey[0], encryptionKey[1], api.Add(nonce, api.Mul(l, two128))},
+		[]frontend.Variable{encryptionKey[0], encryptionKey[1], api.Add(nonce, api.Mul(length, two128))},
 		0,
 		4,
 	)
@@ -49,10 +49,21 @@ func poseidonDecrypt(
 		)
 	}
 
+	ZERO := frontend.Variable(0)
+
+	if length%3 != 0 {
+		if length%3 == 2 {
+			api.AssertIsEqual(out[length-1], ZERO)
+		} else if length%3 == 1 {
+			api.AssertIsEqual(out[length-1], ZERO)
+			api.AssertIsEqual(out[length-2], ZERO)
+		}
+	}
+
 	// Check the last ciphertext element
 	api.AssertIsEqual(cipherText[decryptedLength], strategies[n][1])
 
-	return out[:l]
+	return out[:length]
 }
 
 // implements poseidon decryption with 1 decrypted element
@@ -63,34 +74,4 @@ func PoseidonDecryptSingle(
 	cipherText [4]frontend.Variable,
 ) []frontend.Variable {
 	return poseidonDecrypt(api, 1, encryptionKey, nonce, cipherText[:])
-}
-
-// implements poseidon decryption with 2 decrypted elements
-func PoseidonDecrypt_2(
-	api frontend.API,
-	encryptionKey [2]frontend.Variable,
-	nonce frontend.Variable,
-	cipherText [4]frontend.Variable,
-) []frontend.Variable {
-	return poseidonDecrypt(api, 2, encryptionKey, nonce, cipherText[:])
-}
-
-// implements poseidon decryption with 3 decrypted elements
-func PoseidonDecrypt_3(
-	api frontend.API,
-	encryptionKey [2]frontend.Variable,
-	nonce frontend.Variable,
-	cipherText [4]frontend.Variable,
-) []frontend.Variable {
-	return poseidonDecrypt(api, 3, encryptionKey, nonce, cipherText[:])
-}
-
-// implements poseidon decryption with 4 decrypted elements
-func PoseidonDecrypt_4(
-	api frontend.API,
-	encryptionKey [2]frontend.Variable,
-	nonce frontend.Variable,
-	cipherText [7]frontend.Variable,
-) []frontend.Variable {
-	return poseidonDecrypt(api, 4, encryptionKey, nonce, cipherText[:])
 }
