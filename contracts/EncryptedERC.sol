@@ -8,6 +8,7 @@ import {EncryptedUserBalances} from "./EncryptedUserBalances.sol";
 
 // libraries
 import {BabyJubJub} from "./libraries/BabyJubJub.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // types
 import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance, AmountPCT} from "./types/Types.sol";
@@ -23,7 +24,7 @@ import {ITransferVerifier} from "./interfaces/verifiers/ITransferVerifier.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
+contract EncryptedERC is TokenTracker, EncryptedUserBalances {
     // registrar contract
     IRegistrar public registrar;
 
@@ -45,7 +46,7 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
 
     constructor(
         CreateEncryptedERCParams memory params
-    ) TokenTracker(params._isConverter) Ownable(msg.sender) {
+    ) TokenTracker(params._isConverter) {
         registrar = IRegistrar(params._registrar);
 
         // if contract is not a converter, then set the name and symbol
@@ -484,6 +485,10 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
             revert InvalidOperation();
         }
 
+        if (isTokenBlacklisted(_tokenAddress)) {
+            revert TokenBlacklisted(_tokenAddress);
+        }
+
         IERC20 token = IERC20(_tokenAddress);
         uint256 dust;
         uint256 tokenId;
@@ -494,13 +499,25 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
             revert UserNotRegistered();
         }
 
+        // Get the contract's balance before the transfer
+        uint256 balanceBefore = token.balanceOf(address(this));
+
         // this function reverts if the transfer fails
-        token.transferFrom(to, address(this), _amount);
+        SafeERC20.safeTransferFrom(token, to, address(this), _amount);
+
+        // Get the contract's balance after the transfer
+        uint256 balanceAfter = token.balanceOf(address(this));
+
+        // Verify that the actual transferred amount matches the expected amount
+        uint256 actualTransferred = balanceAfter - balanceBefore;
+        if (actualTransferred != _amount) {
+            revert TransferFailed();
+        }
 
         (dust, tokenId) = _convertFrom(to, _amount, _tokenAddress, _amountPCT);
 
         // transfer the dust back to the user
-        token.transfer(to, dust);
+        SafeERC20.safeTransfer(token, to, dust);
 
         emit Deposit(to, _amount, dust, tokenId);
     }
@@ -717,6 +734,6 @@ contract EncryptedERC is TokenTracker, Ownable, EncryptedUserBalances {
 
         // transfer the token to the user
         IERC20 token = IERC20(_tokenAddress);
-        token.transfer(_to, value);
+        SafeERC20.safeTransfer(token, _to, value);
     }
 }
