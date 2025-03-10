@@ -2,7 +2,6 @@
 pragma solidity 0.8.27;
 
 // contracts
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TokenTracker} from "./TokenTracker.sol";
 import {EncryptedUserBalances} from "./EncryptedUserBalances.sol";
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.27;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-contract TokenTracker is Ownable {
+contract TokenTracker is Ownable2Step {
     // starting from 1 becase 0 is for standalone version of the EncryptedERC
     uint256 public nextTokenId = 1;
     // indicates if the contract is a converter
@@ -62,7 +62,6 @@ contract TokenTracker is Ownable {
      * @dev Adds a token to the tracker
      */
     function _addToken(address tokenAddress) internal {
-        // Check if token is blacklisted
         if (blacklistedTokens[tokenAddress]) {
             revert TokenBlacklisted(tokenAddress);
         }

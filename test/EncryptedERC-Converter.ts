@@ -30,6 +30,7 @@ describe("EncryptedERC - Converter", () => {
   let signers: SignerWithAddress[];
   let owner: SignerWithAddress;
   let encryptedERC: EncryptedERC;
+  let blacklistedERC20: SimpleERC20;
   const erc20s: SimpleERC20[] = [];
 
   const deployFixture = async () => {
@@ -52,6 +53,13 @@ describe("EncryptedERC - Converter", () => {
       await simpleERC20_.waitForDeployment();
       erc20s.push(simpleERC20_);
     }
+
+	const blacklistedERC20Factory = new SimpleERC20__factory(owner);
+		const blacklistedERC20_ = await blacklistedERC20Factory
+			.connect(owner)
+			.deploy("Blacklisted", "BL", 18);
+		await blacklistedERC20_.waitForDeployment();
+		blacklistedERC20 = blacklistedERC20_;
 
     const registrarFactory = new Registrar__factory(owner);
     const registrar_ = await registrarFactory
@@ -603,6 +611,33 @@ describe("EncryptedERC - Converter", () => {
         ]);
       });
     });
+
+	describe("Blacklisting Tokens", () => {
+	  it("set token as blacklisted", async () => {
+
+	  	await encryptedERC.connect(owner).setTokenBlacklist(
+	  		blacklistedERC20.target,
+	  		true,
+	  	);
+
+	  	const isBlacklisted = await encryptedERC.isTokenBlacklisted(
+	  		blacklistedERC20.target,
+	  	);
+				expect(isBlacklisted).to.equal(true);
+	  });
+
+	  it("should revert if token is blacklisted", async () => {
+	  	const user = users[0];
+
+	  	await expect(
+	  		encryptedERC.connect(user.signer).deposit(
+	  			1n,
+	  			blacklistedERC20.target,
+	  			Array.from({ length: 7 }, () => 1n),
+	  		),
+	  	).to.be.reverted;
+      });
+	});
 
     describe("Withdrawing Tokens - Lower ERC20 Decimals (6)", () => {
       const tokenId = 2;
