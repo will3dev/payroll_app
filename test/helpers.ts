@@ -21,6 +21,8 @@ import {
 	WithdrawVerifier__factory,
 } from "../typechain-types/factories/contracts/verifiers";
 import type { User } from "./user";
+import { ethers } from "hardhat";
+import { poseidon } from "maci-crypto/build/ts/hashing";
 
 const execAsync = util.promisify(exec);
 
@@ -111,6 +113,10 @@ export const privateMint = async (
 	receiverPublicKey: bigint[],
 	auditorPublicKey: bigint[],
 ) => {
+	// 0. get chain id
+	const network = await ethers.provider.getNetwork();
+	const chainId = network.chainId;
+
 	// 1. encrypt mint amount with el-gamal
 	const { cipher: encryptedAmount, random: encryptedAmountRandom } =
 		encryptMessage(receiverPublicKey, amount);
@@ -131,6 +137,9 @@ export const privateMint = async (
 		authKey: auditorAuthKey,
 	} = processPoseidonEncryption([amount], auditorPublicKey);
 
+	// 4. create nullifier hash for the auditor
+	const nullifierHash = poseidon([chainId, ...auditorCiphertext]);
+
 	const publicInputs = [
 		...receiverPublicKey.map(String),
 		...encryptedAmount[0].map(String),
@@ -142,6 +151,8 @@ export const privateMint = async (
 		...auditorCiphertext.map(String),
 		...auditorAuthKey.map(String),
 		auditorNonce.toString(),
+		chainId.toString(),
+		nullifierHash.toString(),
 	];
 
 	const privateInputs = [

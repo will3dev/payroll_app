@@ -37,6 +37,11 @@ type Auditor struct {
 	PCT       PoseidonCiphertext
 }
 
+type MintNullifier struct {
+	ChainID       frontend.Variable `gnark:",public"`
+	NullifierHash frontend.Variable `gnark:",public"`
+}
+
 type Randomness struct {
 	R frontend.Variable
 }

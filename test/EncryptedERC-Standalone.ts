@@ -169,7 +169,7 @@ describe("EncryptedERC - Standalone", () => {
         encryptedERC.connect(users[0].signer).privateMint(
           users[0].signer.address,
           Array.from({ length: 8 }, () => 1n),
-          Array.from({ length: 22 }, () => 1n)
+          Array.from({ length: 24 }, () => 1n)
         )
       ).to.be.reverted;
     });
@@ -299,7 +299,7 @@ describe("EncryptedERC - Standalone", () => {
           encryptedERC.connect(nonOwner.signer).privateMint(
             nonOwner.signer.address,
             Array.from({ length: 8 }, () => 1n),
-            Array.from({ length: 22 }, () => 1n)
+            Array.from({ length: 24 }, () => 1n)
           )
         ).to.be.reverted;
       });
@@ -311,7 +311,7 @@ describe("EncryptedERC - Standalone", () => {
           encryptedERC.connect(owner).privateMint(
             nonRegisteredUser.signer.address,
             Array.from({ length: 8 }, () => 1n),
-            Array.from({ length: 22 }, () => 1n)
+            Array.from({ length: 24 }, () => 1n)
           )
         ).to.be.reverted;
       });

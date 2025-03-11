@@ -7,9 +7,10 @@ import (
 )
 
 type MintCircuit struct {
-	Receiver    Receiver
-	Auditor     Auditor
-	ValueToMint frontend.Variable
+	Receiver      Receiver
+	Auditor       Auditor
+	MintNullifier MintNullifier
+	ValueToMint   frontend.Variable
 }
 
 func (circuit *MintCircuit) Define(api frontend.API) error {
@@ -18,6 +19,9 @@ func (circuit *MintCircuit) Define(api frontend.API) error {
 
 	// Verify receiver's encrypted value is the mint amount
 	CheckValue(api, babyjub, circuit.Receiver, circuit.ValueToMint)
+
+	// Verify nullifier hash is not used
+	CheckNullifierHash(api, circuit.Auditor, circuit.MintNullifier)
 
 	// Verify receiver's encrypted summary includes the mint amount and is encrypted with the receiver's public key
 	CheckPCTReceiver(api, babyjub, circuit.Receiver, circuit.ValueToMint)

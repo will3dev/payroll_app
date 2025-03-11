@@ -9,3 +9,5 @@ error InvalidProof();
 error InvalidOperation();
 error TransferFailed();
 error UnknownToken();
+error InvalidChainId();
+error InvalidNullifier();

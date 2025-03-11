@@ -166,7 +166,7 @@ describe("EncryptedERC - Converter", () => {
         encryptedERC.connect(users[0].signer).privateMint(
           users[0].signer.address,
           Array.from({ length: 8 }, () => 1n),
-          Array.from({ length: 22 }, () => 1n)
+          Array.from({ length: 24 }, () => 1n)
         )
       ).to.be.reverted;
     });
@@ -176,7 +176,7 @@ describe("EncryptedERC - Converter", () => {
         encryptedERC.connect(users[0].signer).privateMint(
           users[0].signer.address,
           Array.from({ length: 8 }, () => 1n),
-          Array.from({ length: 22 }, () => 1n)
+          Array.from({ length: 24 }, () => 1n)
         )
       ).to.be.reverted;
     });

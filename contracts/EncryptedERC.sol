@@ -13,7 +13,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance, AmountPCT} from "./types/Types.sol";
 
 // errors
-import {UserNotRegistered, UnauthorizedAccess, AuditorKeyNotSet, InvalidProof, InvalidOperation, TransferFailed, UnknownToken} from "./errors/Errors.sol";
+import {UserNotRegistered, UnauthorizedAccess, AuditorKeyNotSet, InvalidProof, InvalidOperation, TransferFailed, UnknownToken, InvalidChainId, InvalidNullifier} from "./errors/Errors.sol";
 
 // interfaces
 import {IRegistrar} from "./interfaces/IRegistrar.sol";
@@ -42,6 +42,9 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
     // auditor
     Point public auditorPublicKey = Point({X: 0, Y: 0});
     address public auditor = address(0);
+
+    // nullifier hash for private mint
+    mapping(uint256 mintNullifier => bool isUsed) public alreadyMinted;
 
     constructor(
         CreateEncryptedERCParams memory params
@@ -182,10 +185,14 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
     function privateMint(
         address _user,
         uint256[8] calldata proof,
-        uint256[22] calldata input
+        uint256[24] calldata input
     ) external onlyOwner {
         if (isConverter) {
             revert InvalidOperation();
+        }
+
+        if (block.chainid != input[22]) {
+            revert InvalidChainId();
         }
 
         if (!isAuditorKeySet()) {
@@ -214,8 +221,19 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
             }
         }
 
+        // check if the mint nullifier is unique
+        uint256 mintNullifier = input[23];
+
+        if (mintNullifier >= BabyJubJub.Q) {
+            revert InvalidNullifier();
+        }
+
+        if (alreadyMinted[mintNullifier]) {
+            revert InvalidProof();
+        }
+
         mintVerifier.verifyProof(proof, input);
-        _privateMint(_user, input);
+        _privateMint(_user, mintNullifier, input);
     }
 
     /**
@@ -358,7 +376,11 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
      * @param _user Address of the user
      * @param input Public inputs for the proof
      */
-    function _privateMint(address _user, uint256[22] calldata input) internal {
+    function _privateMint(
+        address _user,
+        uint256 mintNullifier,
+        uint256[24] calldata input
+    ) internal {
         EGCT memory eGCT = EGCT({
             c1: Point({X: input[2], Y: input[3]}),
             c2: Point({X: input[4], Y: input[5]})
@@ -375,6 +397,8 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances {
         }
 
         _addToUserBalance(_user, tokenId, eGCT, _amountPCT);
+
+        alreadyMinted[mintNullifier] = true;
 
         emit PrivateMint(_user, _auditorPCT, auditor);
     }

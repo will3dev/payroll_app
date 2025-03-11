@@ -103,6 +103,15 @@ func CheckPCTAuditor(api frontend.API, bj *babyjub.BjWrapper, auditor Auditor, v
 	api.AssertIsEqual(decrypted[0], value)
 }
 
+/*
+CheckNullifierHash verifies if the given nullifier hash is used
+*/
+func CheckNullifierHash(api frontend.API, auditor Auditor, nullifier MintNullifier) {
+	pos := poseidon.NewPoseidonHash(api)
+	hash := poseidon.CalculateNullifierHash(pos, nullifier.ChainID, auditor.PCT.Ciphertext[:])
+	api.AssertIsEqual(hash, nullifier.NullifierHash)
+}
+
 func (s Sender) GetPrivateKey() frontend.Variable {
 	return s.PrivateKey
 }

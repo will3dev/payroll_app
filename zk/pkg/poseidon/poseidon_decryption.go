@@ -49,19 +49,12 @@ func poseidonDecrypt(
 		)
 	}
 
-	ZERO := frontend.Variable(0)
-
-	if length%3 != 0 {
-		if length%3 == 2 {
-			api.AssertIsEqual(out[length-1], ZERO)
-		} else if length%3 == 1 {
-			api.AssertIsEqual(out[length-1], ZERO)
-			api.AssertIsEqual(out[length-2], ZERO)
+	remainder := length % 3
+	if remainder != 0 {
+		for i := length; i < decryptedLength; i++ {
+			api.AssertIsEqual(out[i], 0)
 		}
 	}
-
-	// Check the last ciphertext element
-	api.AssertIsEqual(cipherText[decryptedLength], strategies[n][1])
 
 	return out[:length]
 }
