@@ -290,7 +290,14 @@ func Hash2(h hash.FieldHasher, a, b frontend.Variable) frontend.Variable {
 	return out
 }
 
-// function calculates the nullifier hash for the given chain ID and auditor PCT
+func Hash3(h hash.FieldHasher, a, b, c frontend.Variable) frontend.Variable {
+	h.Reset()
+	h.Write(a, b, c)
+	out := h.Sum()
+	h.Reset()
+	return out
+}
+
 func CalculateNullifierHash(h hash.FieldHasher, chainID frontend.Variable, auditorPCT []frontend.Variable) frontend.Variable {
 	h.Reset()
 	h.Write(append([]frontend.Variable{chainID}, auditorPCT...)...)

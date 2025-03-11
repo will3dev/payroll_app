@@ -22,7 +22,7 @@ import {
   privateTransfer,
 } from "./helpers";
 import { User } from "./user";
-
+import { poseidon3 } from "poseidon-lite";
 const DECIMALS = 2;
 
 describe("EncryptedERC - Standalone", () => {
@@ -93,31 +93,44 @@ describe("EncryptedERC - Standalone", () => {
       };
 
       it("users should be able to register properly", async () => {
-        // in register circuit we have 3 inputs
-        // private inputs = [senderPrivKey]
-        // public inputs = [senderPubKey[0], senderPubKey[1]]
-        for (const user of users.slice(0, 5)) {
-          const privateInputs = [
-            formatPrivKeyForBabyJub(user.privateKey).toString(),
-          ];
-          const publicInputs = user.publicKey.map(String);
-          const input = {
-            privateInputs,
-            publicInputs,
-          };
+				const network = await ethers.provider.getNetwork();
+				const chainId = network.chainId;
+				// in register circuit we have 3 inputs
+				// private inputs = [senderPrivKey]
+				// public inputs = [senderPubKey[0], senderPubKey[1]]
+				for (const user of users.slice(0, 5)) {
+					const privateInputs = [
+						formatPrivKeyForBabyJub(user.privateKey).toString(),
+					];
 
-          const proof = await generateGnarkProof(
-            "REGISTER",
-            JSON.stringify(input)
-          );
+					const fullAddress = BigInt(user.signer.address);
 
-          const tx = await registrar
-            .connect(user.signer)
-            .register(
-              proof.map(BigInt),
-              publicInputs.map(BigInt) as [bigint, bigint]
-            );
-          await tx.wait();
+					const publicInputs = [...user.publicKey.map(String), fullAddress.toString(), chainId.toString()];
+					const input = {
+						privateInputs,
+						publicInputs,
+					};
+
+					const registrationHash = poseidon3([
+						chainId,
+						formatPrivKeyForBabyJub(user.privateKey).toString(),
+						fullAddress,
+					]).toString();
+
+					input.publicInputs.push(registrationHash);
+
+					const proof = await generateGnarkProof(
+						"REGISTER",
+						JSON.stringify(input),
+					);
+
+					const tx = await registrar
+						.connect(user.signer)
+						.register(
+							proof.map(BigInt),
+							publicInputs.map(BigInt) as [bigint, bigint, bigint, bigint, bigint],
+						);
+					await tx.wait();
 
           // check if the user is registered
           expect(await registrar.isUserRegistered(user.signer.address)).to.be
@@ -141,9 +154,9 @@ describe("EncryptedERC - Standalone", () => {
             .connect(alreadyRegisteredUser.signer)
             .register(
               validParams.proof.map(BigInt),
-              validParams.publicInputs.map(BigInt) as [bigint, bigint]
+              validParams.publicInputs.map(BigInt) as [bigint, bigint, bigint, bigint, bigint]
             )
-        ).to.be.revertedWith("UserAlreadyRegistered");
+        ).to.be.revertedWithCustomError(registrar, "InvalidSender");
       });
     });
   });

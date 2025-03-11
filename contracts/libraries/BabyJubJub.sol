@@ -12,7 +12,7 @@ library BabyJubJub {
     // E: A^2 + y^2 = 1 + Dx^2y^2 (mod Q)
     uint256 internal constant A = 168700;
     uint256 internal constant D = 168696;
-    uint256 internal constant Q =
+    uint256 public constant Q =
         21888242871839275222246405745257275088548364400416034343698204186575808495617;
     uint256 internal constant H =
         10944121435919637611123202872628637544274182200208017171849102093287904247808;
@@ -213,7 +213,6 @@ library BabyJubJub {
 
         return EGCT({c1: c1, c2: c2});
     }
-
 
     // elgamal encryption with a given message
     function encrypt(

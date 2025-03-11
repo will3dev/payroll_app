@@ -11,3 +11,5 @@ error TransferFailed();
 error UnknownToken();
 error InvalidChainId();
 error InvalidNullifier();
+error InvalidSender();
+error InvalidRegistrationHash();

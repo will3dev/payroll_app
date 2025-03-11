@@ -13,5 +13,8 @@
 		"postinstall": "cd zk && make"
 	},
 	"keywords": [],
-	"author": ""
+	"author": "",
+	"dependencies": {
+		"poseidon-lite": "^0.3.0"
+	}
 }

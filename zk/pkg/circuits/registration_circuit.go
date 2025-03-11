@@ -16,5 +16,9 @@ func (circuit *RegistrationCircuit) Define(api frontend.API) error {
 
 	// Verify that the sender's public key is well-formed
 	CheckPublicKey(api, babyjub, circuit.Sender)
+
+	// Verify that the sender's registration hash is well-formed
+	CheckRegistrationHash(api, circuit.Sender)
+
 	return nil
 }

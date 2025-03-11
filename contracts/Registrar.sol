@@ -5,7 +5,10 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Point} from "./types/Types.sol";
 import {IEncryptedERC} from "./interfaces/IEncryptedERC.sol";
 import {IRegistrationVerifier} from "./interfaces/verifiers/IRegistrationVerifier.sol";
-import {UserAlreadyRegistered} from "./errors/Errors.sol";
+import {UserAlreadyRegistered, InvalidChainId, InvalidSender, InvalidRegistrationHash} from "./errors/Errors.sol";
+
+// libraries
+import {BabyJubJub} from "./libraries/BabyJubJub.sol";
 
 contract Registrar {
     address public constant BURN_USER =
@@ -18,6 +21,11 @@ contract Registrar {
      * @dev Mapping of user addresses to their public keys
      */
     mapping(address userAddress => Point userPublicKey) public userPublicKeys;
+
+    /**
+     * @dev Store all registration hashes
+     */
+    mapping(uint256 registrationHash => bool isRegistered) public isRegistered;
 
     constructor(address _registrationVerifier) {
         registrationVerifier = IRegistrationVerifier(_registrationVerifier);
@@ -38,26 +46,46 @@ contract Registrar {
      */
     function register(
         uint256[8] calldata proof,
-        uint256[2] calldata input
+        uint256[5] calldata input
     ) external {
-        address account = msg.sender;
+        address account = address(uint160(input[2]));
+
+        if (msg.sender != account) {
+            revert InvalidSender();
+        }
+
+        if (block.chainid != input[3]) {
+            revert InvalidChainId();
+        }
+
+        uint256 registrationHash = input[4];
+
+        if (registrationHash >= BabyJubJub.Q) {
+            revert InvalidRegistrationHash();
+        }
 
         registrationVerifier.verifyProof(proof, input);
 
-        require(!isUserRegistered(account), "UserAlreadyRegistered");
+        if (isRegistered[registrationHash] && isUserRegistered(account)) {
+            revert UserAlreadyRegistered();
+        }
 
-        _register(account, Point({X: input[0], Y: input[1]}));
+        _register(account, Point({X: input[0], Y: input[1]}), registrationHash);
     }
 
     /**
-     *
      * @param _user Address of the user
      * @param _publicKey Public key of the user
-     *
+     * @param _registrationHash Registration hash
      * @dev Internal function for setting user public key
      */
-    function _register(address _user, Point memory _publicKey) internal {
+    function _register(
+        address _user,
+        Point memory _publicKey,
+        uint256 _registrationHash
+    ) internal {
         userPublicKeys[_user] = _publicKey;
+        isRegistered[_registrationHash] = true;
         emit Register(_user, _publicKey);
     }
 
