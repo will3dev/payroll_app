@@ -1,5 +1,5 @@
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/dist/src/signer-with-address";
-import { expect, } from "chai";
+import { expect } from "chai";
 import { ethers } from "hardhat";
 import type { Registrar } from "../typechain-types/contracts/Registrar";
 import {
@@ -95,12 +95,12 @@ describe("EncryptedERC - Standalone", () => {
       };
 
       it("users should be able to register properly", async () => {
-				const network = await ethers.provider.getNetwork();
-				const chainId = network.chainId;
-				for (const user of users.slice(0, 5)) {
-					const privateInputs = [
-						formatPrivKeyForBabyJub(user.privateKey).toString(),
-					];
+        const network = await ethers.provider.getNetwork();
+        const chainId = network.chainId;
+        for (const user of users.slice(0, 5)) {
+          const privateInputs = [
+            formatPrivKeyForBabyJub(user.privateKey).toString(),
+          ];
 
           const fullAddress = BigInt(user.signer.address);
 
@@ -390,7 +390,9 @@ describe("EncryptedERC - Standalone", () => {
         inputs[23] = String(BN254_SCALAR_FIELD + 1n);
 
         await expect(
-          encryptedERC.connect(owner).privateMint(user.signer.address, validParamsForUser0.proof, inputs)
+          encryptedERC
+            .connect(owner)
+            .privateMint(user.signer.address, validParamsForUser0.proof, inputs)
         ).to.be.revertedWithCustomError(encryptedERC, "InvalidNullifier");
       });
 
@@ -418,11 +420,7 @@ describe("EncryptedERC - Standalone", () => {
         await expect(
           encryptedERC
             .connect(owner)
-            .privateMint(
-              user.signer.address,
-              validParamsForUser0.proof,
-              inputs
-            )
+            .privateMint(user.signer.address, validParamsForUser0.proof, inputs)
         ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
       });
 
@@ -564,11 +562,7 @@ describe("EncryptedERC - Standalone", () => {
         await expect(
           encryptedERC
             .connect(user.signer)
-            .privateBurn(
-              validParams.proof,
-              inputs,
-              validParams.userBalancePCT
-            )
+            .privateBurn(validParams.proof, inputs, validParams.userBalancePCT)
         ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
       });
 
@@ -582,11 +576,7 @@ describe("EncryptedERC - Standalone", () => {
         await expect(
           encryptedERC
             .connect(user.signer)
-            .privateBurn(
-              validParams.proof,
-              inputs,
-              validParams.userBalancePCT
-            )
+            .privateBurn(validParams.proof, inputs, validParams.userBalancePCT)
         ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
       });
 
@@ -600,11 +590,7 @@ describe("EncryptedERC - Standalone", () => {
         await expect(
           encryptedERC
             .connect(user.signer)
-            .privateBurn(
-              validParams.proof,
-              inputs,
-              validParams.userBalancePCT
-            )
+            .privateBurn(validParams.proof, inputs, validParams.userBalancePCT)
         ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
       });
 
