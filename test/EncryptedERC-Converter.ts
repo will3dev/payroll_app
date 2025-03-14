@@ -7,10 +7,11 @@ import {
   EncryptedERC__factory,
   Registrar__factory,
   SimpleERC20__factory,
+  FeeERC20__factory
 } from "../typechain-types/factories/contracts";
 
 import { formatPrivKeyForBabyJub } from "maci-crypto";
-import { processPoseidonEncryption } from "../src/jub/jub";
+import { BN254_SCALAR_FIELD, processPoseidonEncryption } from "../src/jub/jub";
 import type { EncryptedERC } from "../typechain-types/contracts/EncryptedERC";
 import type { SimpleERC20 } from "../typechain-types/contracts/SimpleERC20";
 import {
@@ -32,6 +33,7 @@ describe("EncryptedERC - Converter", () => {
   let owner: SignerWithAddress;
   let encryptedERC: EncryptedERC;
   let blacklistedERC20: SimpleERC20;
+  let feeERC20: any; // Using any type for now
   const erc20s: SimpleERC20[] = [];
 
   const deployFixture = async () => {
@@ -55,12 +57,19 @@ describe("EncryptedERC - Converter", () => {
       erc20s.push(simpleERC20_);
     }
 
-	const blacklistedERC20Factory = new SimpleERC20__factory(owner);
-		const blacklistedERC20_ = await blacklistedERC20Factory
-			.connect(owner)
-			.deploy("Blacklisted", "BL", 18);
-		await blacklistedERC20_.waitForDeployment();
-		blacklistedERC20 = blacklistedERC20_;
+    // Deploy a fee ERC20 token
+    const feeERC20Factory = new FeeERC20__factory(owner);
+    feeERC20 = await feeERC20Factory
+      .connect(owner)
+      .deploy("Fee Token", "FEE", 18, 500, owner.address); // 5% fee
+    await feeERC20.waitForDeployment();
+
+    const blacklistedERC20Factory = new SimpleERC20__factory(owner);
+    const blacklistedERC20_ = await blacklistedERC20Factory
+      .connect(owner)
+      .deploy("Blacklisted", "BL", 18);
+    await blacklistedERC20_.waitForDeployment();
+    blacklistedERC20 = blacklistedERC20_;
 
     const registrarFactory = new Registrar__factory(owner);
     const registrar_ = await registrarFactory
@@ -73,14 +82,14 @@ describe("EncryptedERC - Converter", () => {
       "contracts/libraries/BabyJubJub.sol:BabyJubJub": babyJubJub,
     });
     const encryptedERC_ = await encryptedERCFactory.connect(owner).deploy({
-      _registrar: registrar_.target,
-      _isConverter: true,
-      _name: "Test",
-      _symbol: "TEST",
-      _mintVerifier: mintVerifier,
-      _withdrawVerifier: withdrawVerifier,
-      _transferVerifier: transferVerifier,
-      _decimals: DECIMALS,
+      registrar: registrar_.target,
+      isConverter: true,
+      name: "Test",
+      symbol: "TEST",
+      mintVerifier,
+      withdrawVerifier,
+      transferVerifier,
+      decimals: DECIMALS,
     });
 
     await encryptedERC_.waitForDeployment();
@@ -99,15 +108,20 @@ describe("EncryptedERC - Converter", () => {
     });
 
     it("should initialize properly", async () => {
-      const burnUserAddress = await registrar.BURN_USER();
+      const burnUserAddress = await registrar.burnUser();
       const burnUserPublicKey = await registrar.userPublicKeys(burnUserAddress);
       expect(burnUserPublicKey).to.deep.equal([0n, 1n]);
     });
 
     describe("Registration", () => {
+      let validParamsForUser4: {
+        proof: string[];
+        publicInputs: string[];
+      };
+
       it("users should be able to register properly", async () => {
 				const network = await ethers.provider.getNetwork();
-				const chainId = network.chainId;
+				const chainId = BigInt(network.chainId)
 
 				for (const user of users.slice(0, 5)) {
 					const privateInputs = [
@@ -152,8 +166,103 @@ describe("EncryptedERC - Converter", () => {
             user.signer.address
           );
 
+          validParamsForUser4 = { proof, publicInputs };
+
           expect(publicKey).to.deep.equal(user.publicKey);
         }
+      });
+
+      it("should revert if chain ID is invalid", async () => {
+        const user = users[0];
+        const network = await ethers.provider.getNetwork();
+        const chainId = BigInt(network.chainId) + 1n; // Invalid chain ID
+
+        const privateInputs = [
+          formatPrivKeyForBabyJub(user.privateKey).toString(),
+        ];
+
+        const fullAddress = BigInt(user.signer.address);
+
+        const publicInputs = [...user.publicKey.map(String), fullAddress.toString(), chainId.toString()];
+        const input = {
+          privateInputs,
+          publicInputs,
+        };
+
+        const registrationHash = poseidon3([
+          chainId,
+          formatPrivKeyForBabyJub(user.privateKey).toString(),
+          fullAddress,
+        ]).toString();
+
+        input.publicInputs.push(registrationHash);
+
+        const proof = await generateGnarkProof(
+          "REGISTER",
+          JSON.stringify(input),
+        );
+
+        await expect(
+          registrar
+            .connect(user.signer)
+            .register(
+              proof.map(BigInt),
+              publicInputs.map(BigInt) as [bigint, bigint, bigint, bigint, bigint],
+            )
+        ).to.be.revertedWithCustomError(registrar, "InvalidChainId");
+      });
+
+      it("should revert if user is already registered", async () => {
+        const user = users[0];
+        const network = await ethers.provider.getNetwork();
+        const chainId = BigInt(network.chainId)
+
+        const privateInputs = [
+          formatPrivKeyForBabyJub(user.privateKey).toString(),
+        ];
+
+        const fullAddress = BigInt(user.signer.address);
+
+        const publicInputs = [...user.publicKey.map(String), fullAddress.toString(), chainId.toString()];
+        const input = {
+          privateInputs,
+          publicInputs,
+        };
+
+        const registrationHash = poseidon3([
+          chainId,
+          formatPrivKeyForBabyJub(user.privateKey).toString(),
+          fullAddress,
+        ]).toString();
+
+        input.publicInputs.push(registrationHash);
+
+        const proof = await generateGnarkProof(
+          "REGISTER",
+          JSON.stringify(input),
+        );
+
+        await expect(registrar
+          .connect(user.signer)
+          .register(
+            proof.map(BigInt),
+            publicInputs.map(BigInt) as [bigint, bigint, bigint, bigint, bigint],
+          )
+        ).to.be.revertedWithCustomError(registrar, "UserAlreadyRegistered");
+      });
+
+      it("should revert if registration hash is greater than or equal to BabyJubJub.Q", async () => {
+        const user = users[4];
+
+        const inputs = [...validParamsForUser4.publicInputs];
+
+        inputs[4] = String(BN254_SCALAR_FIELD + 1n);
+
+        await expect(
+          registrar
+            .connect(user.signer)
+            .register(validParamsForUser4.proof, inputs)
+        ).to.be.revertedWithCustomError(registrar, "InvalidRegistrationHash");
       });
     });
   });
@@ -363,6 +472,29 @@ describe("EncryptedERC - Converter", () => {
         }
       });
 
+      it("should revert if amount approved is different from the amount deposited", async () => {
+        const ownerUser = users[0];
+        const depositAmount = 1_000_000_000n;
+        
+        // Mint some tokens to the owner
+        await feeERC20.connect(owner).mint(owner.address, depositAmount * 10n);
+        
+        // Approve the deposit
+        await feeERC20.connect(owner).approve(encryptedERC.target, depositAmount);
+        
+        // Create the encrypted value
+        const { ciphertext, nonce, authKey } = processPoseidonEncryption(
+          [10n],
+          ownerUser.publicKey
+        );
+        
+        await expect(encryptedERC.connect(owner).deposit(depositAmount, feeERC20.target, [
+          ...ciphertext,
+          ...authKey,
+          nonce,
+        ])).to.be.revertedWithCustomError(encryptedERC, "TransferFailed");
+      })
+
       // this test should be here because it needs the encryptedERC to be initialized and deposit to be done
       it("get tokens should return the proper addresses", async () => {
         const contractTokens = await encryptedERC.getTokens();
@@ -375,6 +507,14 @@ describe("EncryptedERC - Converter", () => {
             1n,
             users[0].signer.address,
             Array.from({ length: 7 }, () => 1n)
+          )
+        ).to.be.reverted;
+      });
+
+      it("should revert if the token is blacklisted", async () => {
+        await expect(
+          encryptedERC.connect(users[0].signer).deposit(
+            1n, blacklistedERC20.target, Array.from({ length: 7 }, () => 1n)
           )
         ).to.be.reverted;
       });
@@ -624,32 +764,41 @@ describe("EncryptedERC - Converter", () => {
       });
     });
 
-	describe("Blacklisting Tokens", () => {
-	  it("set token as blacklisted", async () => {
 
-	  	await encryptedERC.connect(owner).setTokenBlacklist(
-	  		blacklistedERC20.target,
-	  		true,
-	  	);
+    describe("Blacklisting Tokens", () => {
+      it("set token as blacklisted", async () => {
 
-	  	const isBlacklisted = await encryptedERC.isTokenBlacklisted(
-	  		blacklistedERC20.target,
-	  	);
-				expect(isBlacklisted).to.equal(true);
-	  });
+        await encryptedERC.connect(owner).setTokenBlacklist(
+          blacklistedERC20.target,
+          true,
+        );
 
-	  it("should revert if token is blacklisted", async () => {
-	  	const user = users[0];
-
-	  	await expect(
-	  		encryptedERC.connect(user.signer).deposit(
-	  			1n,
-	  			blacklistedERC20.target,
-	  			Array.from({ length: 7 }, () => 1n),
-	  		),
-	  	).to.be.reverted;
+        const isBlacklisted = await encryptedERC.isTokenBlacklisted(
+          blacklistedERC20.target,
+        );
+          expect(isBlacklisted).to.equal(true);
       });
-	});
+
+      it("should revert if user is not owner", async () => {
+        const user = users[1].signer;
+
+        await expect(
+          encryptedERC.connect(user).setTokenBlacklist(blacklistedERC20.target, true)
+        ).to.be.reverted;
+      });
+
+      it("should revert if token is blacklisted", async () => {
+        const user = users[0];
+        
+        await expect(
+          encryptedERC.connect(user.signer).deposit(
+            1n,
+            blacklistedERC20.target,
+            Array.from({ length: 7 }, () => 1n),
+          ),
+          ).to.be.reverted;
+        });
+    });
 
     describe("Withdrawing Tokens - Lower ERC20 Decimals (6)", () => {
       const tokenId = 2;
@@ -786,7 +935,180 @@ describe("EncryptedERC - Converter", () => {
       });
     });
 
-    describe("Withdrawing Tokens - Higher ERC20 Decimals (10)", () => {
+    describe("Withdrawing Tokens - Same ERC20 Decimals (10)", () => {
+      const tokenId = 3;
+      const withdrawAmount = 1000n;
+      let userInitialBalance: bigint;
+      let validProof: {
+        proof: string[];
+        publicInputs: string[];
+        userBalancePCT: string[];
+      };
+
+      it("should initialize user balance properly", async () => {
+        const user = users[0];
+
+        const balance = await encryptedERC.balanceOf(
+          user.signer.address,
+          tokenId
+        );
+
+        const totalBalance = await getDecryptedBalance(
+          user.privateKey,
+          balance.amountPCTs,
+          balance.balancePCT,
+          balance.eGCT
+        );
+
+        userInitialBalance = totalBalance;
+      });
+
+      it("should withdraw token properly", async () => {
+        const user = users[0];
+        const balance = await encryptedERC.balanceOf(
+          user.signer.address,
+          tokenId
+        );
+        const userEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
+
+        const { proof, publicInputs, userBalancePCT } = await withdraw(
+          withdrawAmount,
+          user,
+          userEncryptedBalance,
+          userInitialBalance,
+          auditorPublicKey
+        );
+
+        expect(
+          await encryptedERC
+            .connect(user.signer)
+            .withdraw(tokenId, proof, publicInputs, userBalancePCT)
+        ).to.be.not.reverted;
+
+        validProof = { proof, publicInputs, userBalancePCT };
+      });
+
+      it("after withdrawing, the user balance should be updated properly", async () => {
+        const user = users[0];
+        const balance = await encryptedERC.balanceOf(
+          user.signer.address,
+          tokenId
+        );
+
+        const totalBalance = await getDecryptedBalance(
+          user.privateKey,
+          balance.amountPCTs,
+          balance.balancePCT,
+          balance.eGCT
+        );
+
+        expect(totalBalance).to.equal(userInitialBalance - withdrawAmount);
+      });
+
+      it("should revert if user public key X and public key X from proof are not matching", async () => {
+        const user = users[0];
+
+        const inputs = [...validProof.publicInputs];
+
+        inputs[0] = "100";
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .withdraw(
+              tokenId,
+              validProof.proof,
+              inputs,
+              validProof.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("should revert if user public key Y and public key Y from proof are not matching", async () => {
+        const user = users[0];
+
+        const inputs = [...validProof.publicInputs];
+
+        inputs[1] = "100";
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .withdraw(
+              tokenId,
+              validProof.proof,
+              inputs,
+              validProof.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("should revert if auditor public key X and public key X from proof are not matching", async () => {
+        const _publicInputs = [...validProof.publicInputs];
+        _publicInputs[6] = "0";
+
+        await expect(
+          encryptedERC
+            .connect(users[0].signer)
+            .withdraw(
+              tokenId,
+              validProof.proof,
+              _publicInputs,
+              validProof.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("should revert if auditor public key Y and public key Y from proof are not matching", async () => {
+        const _publicInputs = [...validProof.publicInputs];
+        _publicInputs[7] = "0";
+
+        await expect(
+          encryptedERC
+            .connect(users[0].signer)
+            .withdraw(
+              tokenId,
+              validProof.proof,
+              _publicInputs,
+              validProof.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("should revert if proof is not valid", async () => {
+        const user = users[0];
+        const _proof = [...validProof.proof];
+        _proof[0] = "0";
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .withdraw(
+              tokenId,
+              validProof.proof,
+              validProof.publicInputs,
+              validProof.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("should revert if token is not registered", async () => {
+        const user = users[0];
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .withdraw(
+              10n,
+              validProof.proof,
+              validProof.publicInputs,
+              validProof.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "UnknownToken");
+      });
+    });
+
+    describe("Withdrawing Tokens - Higher ERC20 Decimals (18)", () => {
       const tokenId = 1;
       const withdrawAmount = 10000n;
       let userInitialBalance: bigint;

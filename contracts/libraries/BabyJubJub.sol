@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity 0.8.27;
 
 // Structs
 import {Point, EGCT} from "../types/Types.sol";
@@ -18,17 +18,6 @@ library BabyJubJub {
         10944121435919637611123202872628637544274182200208017171849102093287904247808;
     uint256 internal constant R =
         2736030358979909402780800718157159386076813972158567259200215660948447373041;
-
-    /**
-     * @dev Default generator
-     */
-    function base8() public pure returns (Point memory) {
-        return
-            Point({
-                X: 5299619240641551281634865583518297030282874472190772894086521144482721001553,
-                Y: 16950150798460657717958625567821834550301663161624707787222815936182638968203
-            });
-    }
 
     /**
      * @dev Subtract a BabyJubJub point from another BabyJubJub point
@@ -56,32 +45,23 @@ library BabyJubJub {
         Point memory _point1,
         Point memory _point2
     ) public view returns (Point memory) {
-        uint256 x1x2 = mulmod(_point1.X, _point2.X, Q);
-        uint256 y1y2 = mulmod(_point1.Y, _point2.Y, Q);
+        uint256 x1x2 = mulmod(_point1.x, _point2.x, Q);
+        uint256 y1y2 = mulmod(_point1.y, _point2.y, Q);
 
         uint256 dx1x2y1y2 = mulmod(D, mulmod(x1x2, y1y2, Q), Q);
 
         uint256 x3Num = addmod(
-            mulmod(_point1.X, _point2.Y, Q),
-            mulmod(_point1.Y, _point2.X, Q),
+            mulmod(_point1.x, _point2.y, Q),
+            mulmod(_point1.y, _point2.x, Q),
             Q
         );
         uint256 y3Num = submod(y1y2, mulmod(A, x1x2, Q));
 
         return
             Point({
-                X: mulmod(x3Num, invmod(addmod(1, dx1x2y1y2, Q)), Q),
-                Y: mulmod(y3Num, invmod(submod(1, dx1x2y1y2)), Q)
+                x: mulmod(x3Num, invmod(addmod(1, dx1x2y1y2, Q)), Q),
+                y: mulmod(y3Num, invmod(submod(1, dx1x2y1y2)), Q)
             });
-    }
-
-    /**
-     * @dev Double a point on BabyJubJub curve
-     * @param _p point to double
-     * @return doubled point
-     */
-    function double(Point memory _p) internal view returns (Point memory) {
-        return _add(_p, _p);
     }
 
     /**
@@ -102,7 +82,7 @@ library BabyJubJub {
         Point memory initial = _point;
 
         // Initialize result
-        Point memory result = Point({X: 0, Y: 1});
+        Point memory result = Point({x: 0, y: 1});
 
         // Loop while remainder is greater than 0
         while (remaining != 0) {
@@ -122,22 +102,52 @@ library BabyJubJub {
     }
 
     /**
-     * @dev Negate a BabyJubJub point
-     * @param _point point to negate
-     * @return p = -(_p)
+     *
+     * @param _publicKey Public Key that will be used in encryption
+     * @param _msg Message in scalar form to be encrypted
      */
-    function negate(Point memory _point) internal pure returns (Point memory) {
-        return Point({X: Q - _point.X, Y: _point.Y});
+    function elGamalEncryption(
+        Point memory _publicKey,
+        uint256 _msg
+    ) public view returns (EGCT memory) {
+        uint256 random = 1;
+        Point memory b8 = base8();
+
+        Point memory c1 = scalarMultiply(b8, random);
+        Point memory pkr = scalarMultiply(_publicKey, random);
+        Point memory pMsg = scalarMultiply(b8, _msg);
+
+        Point memory c2 = _add(pkr, pMsg);
+
+        return EGCT({c1: c1, c2: c2});
+    }
+
+    // elgamal encryption with a given message
+    function encrypt(
+        Point memory _publicKey,
+        uint256 _msg
+    ) public view returns (EGCT memory) {
+        return elGamalEncryption(_publicKey, _msg);
     }
 
     /**
-     * @dev Modular subtract (mod n).
-     * @param _a The first number
-     * @param _b The number to be subtracted
-     * @return result
+     * @dev Default generator
      */
-    function submod(uint256 _a, uint256 _b) internal pure returns (uint256) {
-        return addmod(_a, Q - _b, Q);
+    function base8() public pure returns (Point memory) {
+        return
+            Point({
+                x: 5299619240641551281634865583518297030282874472190772894086521144482721001553,
+                y: 16950150798460657717958625567821834550301663161624707787222815936182638968203
+            });
+    }
+
+    /**
+     * @dev Double a point on BabyJubJub curve
+     * @param _p point to double
+     * @return doubled point
+     */
+    function double(Point memory _p) internal view returns (Point memory) {
+        return _add(_p, _p);
     }
 
     /**
@@ -194,31 +204,21 @@ library BabyJubJub {
     }
 
     /**
-     *
-     * @param _publicKey Public Key that will be used in encryption
-     * @param _msg Message in scalar form to be encrypted
+     * @dev Negate a BabyJubJub point
+     * @param _point point to negate
+     * @return p = -(_p)
      */
-    function elGamalEncryption(
-        Point memory _publicKey,
-        uint256 _msg
-    ) public view returns (EGCT memory) {
-        uint256 random = 1;
-        Point memory b8 = base8();
-
-        Point memory c1 = scalarMultiply(b8, random);
-        Point memory pkr = scalarMultiply(_publicKey, random);
-        Point memory pMsg = scalarMultiply(b8, _msg);
-
-        Point memory c2 = _add(pkr, pMsg);
-
-        return EGCT({c1: c1, c2: c2});
+    function negate(Point memory _point) internal pure returns (Point memory) {
+        return Point({x: Q - _point.x, y: _point.y});
     }
 
-    // elgamal encryption with a given message
-    function encrypt(
-        Point memory _publicKey,
-        uint256 _msg
-    ) public view returns (EGCT memory) {
-        return elGamalEncryption(_publicKey, _msg);
+    /**
+     * @dev Modular subtract (mod n).
+     * @param _a The first number
+     * @param _b The number to be subtracted
+     * @return result
+     */
+    function submod(uint256 _a, uint256 _b) internal pure returns (uint256) {
+        return addmod(_a, Q - _b, Q);
     }
 }

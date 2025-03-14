@@ -7,11 +7,13 @@
     "@zk-kit/baby-jubjub": "^1.0.3",
     "hardhat": "^2.22.15",
     "maci-crypto": "^2.0.0",
-    "poseidon-lite": "^0.3.0"
+    "poseidon-lite": "^0.3.0",
+    "solhint": "^5.0.5"
   },
   "scripts": {
     "test": "mocha 'src/**/*.test.js'",
-    "postinstall": "cd zk && make"
+    "postinstall": "cd zk && make",
+    "lint:sol": "solhint '**/*.sol' --config ./.solhint.json --ignore-path ./.solhintignore --max-warnings 0"
   },
   "keywords": [],
   "author": ""

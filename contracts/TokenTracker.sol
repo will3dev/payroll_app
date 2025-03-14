@@ -22,29 +22,29 @@ contract TokenTracker is Ownable2Step {
     mapping(address tokenAddress => bool isBlacklisted)
         public blacklistedTokens;
 
-    constructor(bool _isConverter) Ownable(msg.sender) {
-        isConverter = _isConverter;
+    error TokenBlacklisted(address token);
+
+    constructor(bool isConverter_) Ownable(msg.sender) {
+        isConverter = isConverter_;
     }
 
-    error TokenBlacklisted(address token);
+    /**
+     * @param token Address of the token to blacklist
+     * @param blacklisted Boolean indicating if token should be blacklisted
+     * @dev Only owner can call this function
+     */
+    function setTokenBlacklist(
+        address token,
+        bool blacklisted
+    ) external onlyOwner {
+        blacklistedTokens[token] = blacklisted;
+    }
 
     /**
      * @return Array of token addresses
      */
     function getTokens() external view returns (address[] memory) {
         return tokens;
-    }
-
-    /**
-     * @param _token Address of the token to blacklist
-     * @param _blacklisted Boolean indicating if token should be blacklisted
-     * @dev Only owner can call this function
-     */
-    function setTokenBlacklist(
-        address _token,
-        bool _blacklisted
-    ) external onlyOwner {
-        blacklistedTokens[_token] = _blacklisted;
     }
 
     /**
@@ -62,10 +62,6 @@ contract TokenTracker is Ownable2Step {
      * @dev Adds a token to the tracker
      */
     function _addToken(address tokenAddress) internal {
-        if (blacklistedTokens[tokenAddress]) {
-            revert TokenBlacklisted(tokenAddress);
-        }
-
         uint256 newTokenId = nextTokenId;
         tokenIds[tokenAddress] = newTokenId;
         tokenAddresses[newTokenId] = tokenAddress;

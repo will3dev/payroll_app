@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.27;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Point} from "./types/Types.sol";
-import {IEncryptedERC} from "./interfaces/IEncryptedERC.sol";
 import {IRegistrationVerifier} from "./interfaces/verifiers/IRegistrationVerifier.sol";
 import {UserAlreadyRegistered, InvalidChainId, InvalidSender, InvalidRegistrationHash} from "./errors/Errors.sol";
 
@@ -27,18 +25,18 @@ contract Registrar {
      */
     mapping(uint256 registrationHash => bool isRegistered) public isRegistered;
 
-    constructor(address _registrationVerifier) {
-        registrationVerifier = IRegistrationVerifier(_registrationVerifier);
-        // setting burn user to the identity point (0, 1)
-        userPublicKeys[BURN_USER] = Point({X: 0, Y: 1});
-    }
-
     /**
      *
      * @param user Address of the user
      * @param publicKey Public key of the user
      */
     event Register(address indexed user, Point publicKey);
+
+    constructor(address registrationVerifier_) {
+        registrationVerifier = IRegistrationVerifier(registrationVerifier_);
+        // setting burn user to the identity point (0, 1)
+        userPublicKeys[BURN_USER] = Point({x: 0, y: 1});
+    }
 
     /**
      * @param proof Proof of the user
@@ -70,44 +68,52 @@ contract Registrar {
             revert UserAlreadyRegistered();
         }
 
-        _register(account, Point({X: input[0], Y: input[1]}), registrationHash);
+        _register(account, Point({x: input[0], y: input[1]}), registrationHash);
     }
 
     /**
-     * @param _user Address of the user
-     * @param _publicKey Public key of the user
-     * @param _registrationHash Registration hash
-     * @dev Internal function for setting user public key
+     * @dev Returns the burn user address.
+     * @return The burn user address.
      */
-    function _register(
-        address _user,
-        Point memory _publicKey,
-        uint256 _registrationHash
-    ) internal {
-        userPublicKeys[_user] = _publicKey;
-        isRegistered[_registrationHash] = true;
-        emit Register(_user, _publicKey);
+    function burnUser() external pure returns (address) {
+        return BURN_USER;
     }
 
     /**
      *
-     * @param _user Address of the user
+     * @param user Address of the user
      *
      * @return bool True if the user is registered
      */
-    function isUserRegistered(address _user) public view returns (bool) {
-        return userPublicKeys[_user].X != 0 && userPublicKeys[_user].Y != 0;
+    function isUserRegistered(address user) public view returns (bool) {
+        return userPublicKeys[user].x != 0 && userPublicKeys[user].y != 0;
     }
 
     /**
      *
-     * @param _user Address of the user
+     * @param user Address of the user
      *
      * @return publicKey Public key of the user as [x, y] coordinates
      */
     function getUserPublicKey(
-        address _user
+        address user
     ) public view returns (uint256[2] memory publicKey) {
-        return [userPublicKeys[_user].X, userPublicKeys[_user].Y];
+        return [userPublicKeys[user].x, userPublicKeys[user].y];
+    }
+
+    /**
+     * @param user Address of the user
+     * @param publicKey Public key of the user
+     * @param registrationHash Registration hash
+     * @dev Internal function for setting user public key
+     */
+    function _register(
+        address user,
+        Point memory publicKey,
+        uint256 registrationHash
+    ) internal {
+        userPublicKeys[user] = publicKey;
+        isRegistered[registrationHash] = true;
+        emit Register(user, publicKey);
     }
 }

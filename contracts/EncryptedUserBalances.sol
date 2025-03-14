@@ -9,13 +9,13 @@ contract EncryptedUserBalances {
 
     /**
      *
-     * @param _user User address
+     * @param user User address
      * @return eGCT Elgamal Ciphertext
      * @return nonce Nonce
      * @dev Returns the balance of the user for the standalone token (tokenId = 0)
      */
     function balanceOfStandalone(
-        address _user
+        address user
     )
         external
         view
@@ -27,19 +27,19 @@ contract EncryptedUserBalances {
             uint256 transactionIndex
         )
     {
-        return balanceOf(_user, 0);
+        return balanceOf(user, 0);
     }
 
     /**
-     * @param _user User address
-     * @param _tokenId Token ID
+     * @param user User address
+     * @param tokenId Token ID
      * @return eGCT Elgamal Ciphertext
      * @return nonce Nonce
      * @dev Returns the balance of the user for the given token
      */
     function balanceOf(
-        address _user,
-        uint256 _tokenId
+        address user,
+        uint256 tokenId
     )
         public
         view
@@ -51,7 +51,7 @@ contract EncryptedUserBalances {
             uint256 transactionIndex
         )
     {
-        EncryptedBalance storage balance = balances[_user][_tokenId];
+        EncryptedBalance storage balance = balances[user][tokenId];
         return (
             balance.eGCT,
             balance.nonce,
@@ -65,50 +65,60 @@ contract EncryptedUserBalances {
     ///               Internal Functions            ///
     ///////////////////////////////////////////////////
 
+    /**
+     * @param user User address
+     * @param tokenId Token ID
+     * @dev Adds the amount to the user's balance
+     */
     function _addToUserBalance(
-        address _user,
-        uint256 _tokenId,
-        EGCT memory _eGCT,
-        uint256[7] memory _amountPCT
+        address user,
+        uint256 tokenId,
+        EGCT memory eGCT,
+        uint256[7] memory amountPCT
     ) internal {
-        EncryptedBalance storage balance = balances[_user][_tokenId];
+        EncryptedBalance storage balance = balances[user][tokenId];
 
         // if user balance is not initialized, initialize it
-        if (balance.eGCT.c1.X == 0 && balance.eGCT.c1.Y == 0) {
-            balance.eGCT = _eGCT;
+        if (balance.eGCT.c1.x == 0 && balance.eGCT.c1.y == 0) {
+            balance.eGCT = eGCT;
         } else {
             // if user balance is already initialized, add the encrypted amount to the balance
-            balance.eGCT.c1 = BabyJubJub._add(balance.eGCT.c1, _eGCT.c1);
-            balance.eGCT.c2 = BabyJubJub._add(balance.eGCT.c2, _eGCT.c2);
+            balance.eGCT.c1 = BabyJubJub._add(balance.eGCT.c1, eGCT.c1);
+            balance.eGCT.c2 = BabyJubJub._add(balance.eGCT.c2, eGCT.c2);
         }
 
         // in all the case
-        _addToUserHistory(_user, _tokenId, _amountPCT);
-    }
-
-    function _subtractFromUserBalance(
-        address _user,
-        uint256 _tokenId,
-        EGCT memory _eGCT,
-        uint256[7] memory _balancePCT,
-        uint256 _transactionIndex
-    ) internal {
-        EncryptedBalance storage balance = balances[_user][_tokenId];
-
-        // since we are encrypting the negated amount, we need to add it to the balance
-        balance.eGCT.c1 = BabyJubJub._sub(balance.eGCT.c1, _eGCT.c1);
-        balance.eGCT.c2 = BabyJubJub._sub(balance.eGCT.c2, _eGCT.c2);
-
-        // delete the amount pct from the balance
-        _deleteUserHistory(_user, _tokenId, _transactionIndex);
-
-        // update balance pct
-        balance.balancePCT = _balancePCT;
+        _addToUserHistory(user, tokenId, amountPCT);
     }
 
     /**
-     * @param _user User address
-     * @param _tokenId Token ID
+     * @param user User address
+     * @param tokenId Token ID
+     * @dev Subtracts the amount from the user's balance
+     */
+    function _subtractFromUserBalance(
+        address user,
+        uint256 tokenId,
+        EGCT memory eGCT,
+        uint256[7] memory balancePCT,
+        uint256 transactionIndex
+    ) internal {
+        EncryptedBalance storage balance = balances[user][tokenId];
+
+        // since we are encrypting the negated amount, we need to add it to the balance
+        balance.eGCT.c1 = BabyJubJub._sub(balance.eGCT.c1, eGCT.c1);
+        balance.eGCT.c2 = BabyJubJub._sub(balance.eGCT.c2, eGCT.c2);
+
+        // delete the amount pct from the balance
+        _deleteUserHistory(user, tokenId, transactionIndex);
+
+        // update balance pct
+        balance.balancePCT = balancePCT;
+    }
+
+    /**
+     * @param user User address
+     * @param tokenId Token ID
      * @dev Adds the balance hash to the user's history
      * @dev Hash EGCT with the nonce and mark the result as valid
      *      every time user send a transaction nonce is increased by 1
@@ -116,11 +126,11 @@ contract EncryptedUserBalances {
      *      that the balance hash is known beforehand with the current nonce
      */
     function _addToUserHistory(
-        address _user,
-        uint256 _tokenId,
-        uint256[7] memory _amountPCT
+        address user,
+        uint256 tokenId,
+        uint256[7] memory amountPCT
     ) internal {
-        EncryptedBalance storage balance = balances[_user][_tokenId];
+        EncryptedBalance storage balance = balances[user][tokenId];
 
         uint256 nonce = balance.nonce;
         uint256 balanceHash = _hashEGCT(balance.eGCT);
@@ -134,14 +144,23 @@ contract EncryptedUserBalances {
 
         // add the amount pct to the balance
         balance.amountPCTs.push(
-            AmountPCT({pct: _amountPCT, index: balance.transactionIndex})
+            AmountPCT({pct: amountPCT, index: balance.transactionIndex})
         );
 
         balance.transactionIndex++;
     }
 
-    function _commitUserBalance(address _user, uint256 _tokenId) internal {
-        EncryptedBalance storage balance = balances[_user][_tokenId];
+    /**
+     * @param user User address
+     * @param tokenId Token ID
+     * @dev Commits the user's balance
+     * @dev Hash EGCT with the nonce and mark the result as valid
+     *      every time user send a transaction nonce is increased by 1
+     *      so the balance hash is unique for each transaction and sender must prove
+     *      that the balance hash is known beforehand with the current nonce
+     */
+    function _commitUserBalance(address user, uint256 tokenId) internal {
+        EncryptedBalance storage balance = balances[user][tokenId];
 
         uint256 nonce = balance.nonce;
         uint256 balanceHash = _hashEGCT(balance.eGCT);
@@ -156,23 +175,23 @@ contract EncryptedUserBalances {
     }
 
     /**
-     * @param _user User address
-     * @param _tokenId Token ID
+     * @param user User address
+     * @param tokenId Token ID
      * @dev Deletes the user's history
      * @dev Instead of deleting the history mapping one by one, we can just
      *      increase the nonce by one and the old history will be mark as invalid
      */
     function _deleteUserHistory(
-        address _user,
-        uint256 _tokenId,
-        uint256 _transactionIndex
+        address user,
+        uint256 tokenId,
+        uint256 transactionIndex
     ) internal {
-        EncryptedBalance storage balance = balances[_user][_tokenId];
+        EncryptedBalance storage balance = balances[user][tokenId];
 
         for (uint256 i = balance.amountPCTs.length; i > 0; i--) {
             uint256 index = i - 1;
 
-            if (balance.amountPCTs[index].index <= _transactionIndex) {
+            if (balance.amountPCTs[index].index <= transactionIndex) {
                 balance.amountPCTs[index] = balance.amountPCTs[
                     balance.amountPCTs.length - 1
                 ];
@@ -182,41 +201,41 @@ contract EncryptedUserBalances {
 
         balance.nonce++;
 
-        _commitUserBalance(_user, _tokenId);
+        _commitUserBalance(user, tokenId);
     }
 
     /**
-     * @param _eGCT Elgamal Ciphertext
-     * @return hash of the Elgamal Ciphertext CRH(eGCT)
-     */
-    function _hashEGCT(EGCT memory _eGCT) internal pure returns (uint256) {
-        return
-            uint256(
-                keccak256(
-                    abi.encode(_eGCT.c1.X, _eGCT.c1.Y, _eGCT.c2.X, _eGCT.c2.Y)
-                )
-            );
-    }
-
-    /**
-     * @param _user User address
-     * @param _tokenId Token ID
-     * @param _balanceHash Balance hash
+     * @param user User address
+     * @param tokenId Token ID
+     * @param balanceHash Balance hash
      * @return isValid True if the balance hash is valid
      * @dev Hash the provided eGCT with the current nonce and check if it's in the history
      */
     function _isBalanceValid(
-        address _user,
-        uint256 _tokenId,
-        uint256 _balanceHash
+        address user,
+        uint256 tokenId,
+        uint256 balanceHash
     ) internal view returns (bool, uint256) {
-        uint256 nonce = balances[_user][_tokenId].nonce;
+        uint256 nonce = balances[user][tokenId].nonce;
         uint256 hashWithNonce = uint256(
-            keccak256(abi.encode(_balanceHash, nonce))
+            keccak256(abi.encode(balanceHash, nonce))
         );
         return (
-            balances[_user][_tokenId].balanceList[hashWithNonce].isValid,
-            balances[_user][_tokenId].balanceList[hashWithNonce].index
+            balances[user][tokenId].balanceList[hashWithNonce].isValid,
+            balances[user][tokenId].balanceList[hashWithNonce].index
         );
+    }
+
+    /**
+     * @param eGCT Elgamal Ciphertext
+     * @return hash of the Elgamal Ciphertext CRH(eGCT)
+     */
+    function _hashEGCT(EGCT memory eGCT) internal pure returns (uint256) {
+        return
+            uint256(
+                keccak256(
+                    abi.encode(eGCT.c1.x, eGCT.c1.y, eGCT.c2.x, eGCT.c2.y)
+                )
+            );
     }
 }

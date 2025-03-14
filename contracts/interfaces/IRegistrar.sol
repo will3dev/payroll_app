@@ -4,23 +4,23 @@ pragma solidity 0.8.27;
 interface IRegistrar {
     /**
      * @dev Returns the public key of a user.
-     * @param _user Address of the user.
+     * @param user Address of the user.
      * @return publicKey The public key of the user as an array of two uint256 values.
      */
     function getUserPublicKey(
-        address _user
+        address user
     ) external view returns (uint256[2] memory publicKey);
 
     /**
      * @dev Returns true if the user is registered.
-     * @param _user Address of the user.
+     * @param user Address of the user.
      * @return isRegistered True if the user is registered, false otherwise.
      */
-    function isUserRegistered(address _user) external view returns (bool);
+    function isUserRegistered(address user) external view returns (bool);
 
     /**
      * @dev Returns the burn user address.
      * @return burnUser The burn user address.
      */
-    function BURN_USER() external view returns (address);
+    function burnUser() external view returns (address);
 }

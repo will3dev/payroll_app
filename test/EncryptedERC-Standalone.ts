@@ -1,6 +1,6 @@
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/dist/src/signer-with-address";
 import { expect, use } from "chai";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import type { Registrar } from "../typechain-types/contracts/Registrar";
 import {
   EncryptedERC__factory,
@@ -9,7 +9,7 @@ import {
 
 import { Base8, mulPointEscalar } from "@zk-kit/baby-jubjub";
 import { formatPrivKeyForBabyJub } from "maci-crypto";
-import { decryptPoint } from "../src/jub/jub";
+import { BN254_SCALAR_FIELD, decryptPoint } from "../src/jub/jub";
 import type { EncryptedERC } from "../typechain-types/contracts/EncryptedERC";
 import {
   decryptPCT,
@@ -55,14 +55,14 @@ describe("EncryptedERC - Standalone", () => {
       "contracts/libraries/BabyJubJub.sol:BabyJubJub": babyJubJub,
     });
     const encryptedERC_ = await encryptedERCFactory.connect(owner).deploy({
-      _registrar: registrar_.target,
-      _isConverter: false,
-      _name: "Test",
-      _symbol: "TEST",
-      _mintVerifier: mintVerifier,
-      _withdrawVerifier: withdrawVerifier,
-      _transferVerifier: transferVerifier,
-      _decimals: DECIMALS,
+      registrar: registrar_.target,
+      isConverter: false,
+      name: "Test",
+      symbol: "TEST",
+      mintVerifier,
+      withdrawVerifier,
+      transferVerifier,
+      decimals: DECIMALS,
     });
 
     await encryptedERC_.waitForDeployment();
@@ -81,7 +81,7 @@ describe("EncryptedERC - Standalone", () => {
     });
 
     it("should initialize properly", async () => {
-      const burnUserAddress = await registrar.BURN_USER();
+      const burnUserAddress = await registrar.burnUser();
       const burnUserPublicKey = await registrar.userPublicKeys(burnUserAddress);
       expect(burnUserPublicKey).to.deep.equal([0n, 1n]);
     });
@@ -95,9 +95,6 @@ describe("EncryptedERC - Standalone", () => {
       it("users should be able to register properly", async () => {
 				const network = await ethers.provider.getNetwork();
 				const chainId = network.chainId;
-				// in register circuit we have 3 inputs
-				// private inputs = [senderPrivKey]
-				// public inputs = [senderPubKey[0], senderPubKey[1]]
 				for (const user of users.slice(0, 5)) {
 					const privateInputs = [
 						formatPrivKeyForBabyJub(user.privateKey).toString(),
@@ -178,13 +175,19 @@ describe("EncryptedERC - Standalone", () => {
     });
 
     it("should revert if auditor key is not set", async () => {
+      const network = await ethers.provider.getNetwork();
+
+      const input = Array.from({ length: 24 }, () => 0n);
+
+      input[22] = BigInt(network.chainId);
+
       await expect(
         encryptedERC.connect(users[0].signer).privateMint(
           users[0].signer.address,
           Array.from({ length: 8 }, () => 1n),
-          Array.from({ length: 24 }, () => 1n)
+          input
         )
-      ).to.be.reverted;
+      ).to.be.revertedWithCustomError(encryptedERC, "AuditorKeyNotSet");
     });
 
     describe("Auditor Key Set", () => {
@@ -320,16 +323,60 @@ describe("EncryptedERC - Standalone", () => {
       it("if destination user is not registered, mint should revert", async () => {
         const nonRegisteredUser = users[5];
 
+        const network = await ethers.provider.getNetwork();
+
+        const input = Array.from({ length: 24 }, () => 0n);
+
+        input[22] = BigInt(network.chainId);
+
         await expect(
           encryptedERC.connect(owner).privateMint(
             nonRegisteredUser.signer.address,
             Array.from({ length: 8 }, () => 1n),
-            Array.from({ length: 24 }, () => 1n)
+            input
           )
-        ).to.be.reverted;
+        ).to.be.revertedWithCustomError(encryptedERC, "UserNotRegistered");
       });
 
-      it("user public key and public key from proof should match, if not revert", async () => {
+      it("if chain id is not correct, mint should revert", async () => {
+        const user = users[0];
+
+        await expect(
+          encryptedERC.connect(owner).privateMint(
+            user.signer.address,
+            Array.from({ length: 8 }, () => 1n),
+            Array.from({ length: 24 }, () => 1n)
+          )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidChainId");
+      });
+
+      it("mint nullifier should be unique", async () => {
+        const user = users[0];
+
+        await expect(
+          encryptedERC
+            .connect(owner)
+            .privateMint(
+              user.signer.address,
+              validParamsForUser0.proof,
+              validParamsForUser0.publicInputs
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("should revert if nullifier is greater than or equal to BabyJubJub.Q", async () => {
+        const user = users[0];
+
+        const inputs = [...validParamsForUser0.publicInputs];
+
+        inputs[23] = String(BN254_SCALAR_FIELD + 1n);
+
+        await expect(
+          encryptedERC.connect(owner).privateMint(user.signer.address, validParamsForUser0.proof, inputs)
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidNullifier");
+      });
+
+      it("user public key X and public key X from proof should match, if not revert", async () => {
         const notUser0 = users[4];
 
         await expect(
@@ -341,6 +388,24 @@ describe("EncryptedERC - Standalone", () => {
               validParamsForUser0.publicInputs
             )
         ).to.be.reverted;
+      });
+
+      it("user public key Y and public key Y from proof should match, if not revert", async () => {
+        const user = users[0];
+
+        const inputs = [...validParamsForUser0.publicInputs];
+
+        inputs[1] = "100";
+
+        await expect(
+          encryptedERC
+            .connect(owner)
+            .privateMint(
+              user.signer.address,
+              validParamsForUser0.proof,
+              inputs
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
       });
 
       it("auditor public key and auditor from proof should match, if not revert", async () => {
@@ -457,7 +522,7 @@ describe("EncryptedERC - Standalone", () => {
         ).to.be.reverted;
       });
 
-      it("user public key and public key from proof should match, if not revert", async () => {
+      it("user public key X and public key X from proof should match, if not revert", async () => {
         const notUser0 = users[4];
 
         await expect(
@@ -469,6 +534,60 @@ describe("EncryptedERC - Standalone", () => {
               validParams.userBalancePCT
             )
         ).to.be.reverted;
+      });
+
+      it("user public key Y and public key Y from proof should match, if not revert", async () => {
+        const user = users[0];
+
+        const inputs = [...validParams.publicInputs];
+
+        inputs[1] = "100";
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .privateBurn(
+              validParams.proof,
+              inputs,
+              validParams.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("burn user public key X and public key X from proof should match, if not revert", async () => {
+        const user = users[0];
+
+        const inputs = [...validParams.publicInputs];
+
+        inputs[10] = "100";
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .privateBurn(
+              validParams.proof,
+              inputs,
+              validParams.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
+      });
+
+      it("burn user public key Y and public key Y from proof should match, if not revert", async () => {
+        const user = users[0];
+
+        const inputs = [...validParams.publicInputs];
+
+        inputs[11] = "100";
+
+        await expect(
+          encryptedERC
+            .connect(user.signer)
+            .privateBurn(
+              validParams.proof,
+              inputs,
+              validParams.userBalancePCT
+            )
+        ).to.be.revertedWithCustomError(encryptedERC, "InvalidProof");
       });
 
       it("auditor public key and auditor from proof should match, if not revert", async () => {

@@ -39,10 +39,11 @@ jobs:
       - name: "Install the dependencies"
         run: "npm install"
 
-      - name: "Coverage"
-        run: "npx hardhat coverage"
-
-      - name: "Add test summary"
+      - name: Hardhat coverage
         run: |
-          echo "## Test results" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
+          touch eERC-tests.txt && \
+          npx hardhat coverage | tee eERC-tests.txt || true && \
+          cat eERC-tests.txt >> $GITHUB_STEP_SUMMARY
+
+      - name: "Run linter"
+        run: "npm run lint:sol"
