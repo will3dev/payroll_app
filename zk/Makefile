@@ -2,16 +2,12 @@ export GO111MODULE=on
 
 SOURCE_DIRS = circuits cmd hardhat utils
 
-.PHONY: vendor fmtcheck clean build gotest gobench mod-clean
+.PHONY: vendor clean build mod-clean
 
-all: fmtcheck build gotest mod-clean
+all: mod-clean vendor build
 
 vendor:
 	go mod vendor
-
-vetcheck:
-	go vet ./...
-	golangci-lint run
 
 clean:
 	rm -rf build/
@@ -21,6 +17,3 @@ build:
 
 mod-clean:
 	go mod tidy
-
-mock:
-	@echo "No mocks"

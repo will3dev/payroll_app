@@ -5,12 +5,10 @@ import {SimpleERC20} from "./SimpleERC20.sol";
 
 /**
  * @title FeeERC20
- * @dev ERC20 token with a fee mechanism for testing TransferFailed error
+ * @dev ERC20 token with a fee mechanism for testing
  */
 contract FeeERC20 is SimpleERC20 {
-    // Fee percentage (in basis points, 1 = 0.01%)
     uint256 public feeRate;
-    // Fee collector address
     address public feeCollector;
 
     constructor(
@@ -21,22 +19,6 @@ contract FeeERC20 is SimpleERC20 {
         address feeCollectors
     ) SimpleERC20(name, symbol, decimal) {
         feeRate = feeRates;
-        feeCollector = feeCollectors;
-    }
-
-    /**
-     * @dev Set the fee rate
-     * @param feeRates New fee rate in basis points
-     */
-    function setFeeRate(uint256 feeRates) external {
-        feeRate = feeRates;
-    }
-
-    /**
-     * @dev Set the fee collector
-     * @param feeCollectors New fee collector address
-     */
-    function setFeeCollector(address feeCollectors) external {
         feeCollector = feeCollectors;
     }
 
@@ -55,7 +37,7 @@ contract FeeERC20 is SimpleERC20 {
         address spender = _msgSender();
 
         // Calculate fee
-        uint256 fee = (amount * feeRate) / 10000;
+        uint256 fee = (amount * feeRate) / 100;
         uint256 amountAfterFee = amount - fee;
 
         // Deduct allowance

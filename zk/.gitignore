@@ -6,3 +6,5 @@ build
 
 # env variables for the tests
 .env.test
+
+vendor/

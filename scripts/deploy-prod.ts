@@ -1,6 +1,6 @@
 import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/dist/src/signer-with-address";
 import { ethers } from "hardhat";
-import { deployLibrary, deployVerifiers } from "../test/helpers";
+import { deployLibrary } from "../test/helpers";
 import {
 	EncryptedERC__factory,
 	Registrar__factory,

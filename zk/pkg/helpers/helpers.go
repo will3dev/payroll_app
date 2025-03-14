@@ -25,7 +25,7 @@ type TestingParams struct {
 
 // function loads the contents of the circuit and the keys
 // if isNew, it compiles and generates the keys for the first time
-// otherwise, it reads the circuit and the keys from the given pathsß
+// otherwise, it reads the circuit and the keys from the given paths
 func LoadCircuit(
 	params TestingParams,
 	f func() frontend.Circuit,

@@ -6,12 +6,7 @@ import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/dist/src
 import { Base8, mulPointEscalar } from "@zk-kit/baby-jubjub";
 import { expect } from "chai";
 import { formatPrivKeyForBabyJub } from "maci-crypto";
-import {
-	decryptPoint,
-	encryptMessage,
-	processPoseidonDecryption,
-	processPoseidonEncryption,
-} from "../src/jub/jub";
+import { decryptPoint, encryptMessage } from "../src/jub/jub";
 import type { AmountPCTStructOutput } from "../typechain-types/contracts/EncryptedERC";
 import { BabyJubJub__factory } from "../typechain-types/factories/contracts/libraries";
 import {
@@ -23,21 +18,18 @@ import {
 import type { User } from "./user";
 import { ethers } from "hardhat";
 import { poseidon } from "maci-crypto/build/ts/hashing";
+import { processPoseidonDecryption, processPoseidonEncryption } from "../src";
 
 const execAsync = util.promisify(exec);
 
-let startTime: number;
-
-export const startTimer = () => {
-	startTime = Date.now();
-};
-
-export const stopTimer = () => {
-	const endTime = Date.now();
-	const duration = endTime - startTime;
-	console.log(`Time taken: ${duration}ms`);
-};
-
+/**
+ * Function for deploying verifier contracts for eERC
+ * @param signer Hardhat signer for the deployment
+ * @returns registrationVerifier - Registration verifier contract address
+ * @returns mintVerifier - Mint verifier contract address
+ * @returns withdrawVerifier - Withdraw verifier contract address
+ * @returns transferVerifier - Transfer verifier contract address
+ */
 export const deployVerifiers = async (signer: SignerWithAddress) => {
 	const registrationVerifierFactory = new RegistrationVerifier__factory(signer);
 	const registrationVerifier = await registrationVerifierFactory.deploy();
@@ -63,6 +55,11 @@ export const deployVerifiers = async (signer: SignerWithAddress) => {
 	};
 };
 
+/**
+ * Function for deploying BabyJubJub library
+ * @param signer Hardhat signer for the deployment
+ * @returns Deployed BabyJubJub library address
+ */
 export const deployLibrary = async (signer: SignerWithAddress) => {
 	const babyJubJubFactory = new BabyJubJub__factory(signer);
 	const babyJubJub = await babyJubJubFactory.deploy();
@@ -81,7 +78,7 @@ export const deployLibrary = async (signer: SignerWithAddress) => {
  */
 export const generateGnarkProof = async (
 	type: string,
-	input: string,
+	input: string
 ): Promise<string[]> => {
 	const outputPath = path.join(__dirname, `${type}.output.json`);
 
@@ -94,10 +91,10 @@ export const generateGnarkProof = async (
 	const cmd = `${executable} --operation ${type} --input '${input}' --pk ${pkPath} --cs ${csPath} --output ${outputPath}`;
 
 	// todo why stdout?
-	startTimer();
+	const now = Date.now();
 	console.log("Generating proof for ", type);
 	const { stderr: err } = await execAsync(cmd);
-	stopTimer();
+	console.log("Proof generation took", Date.now() - now, "ms");
 	if (err) throw new Error(err);
 
 	const output = fs.readFileSync(outputPath, "utf-8");
@@ -108,10 +105,17 @@ export const generateGnarkProof = async (
 	return proof;
 };
 
+/**
+ * Function for minting tokens privately to another user
+ * @param amount Amount to be 
+ * @param receiverPublicKey Receiver's public key
+ * @param auditorPublicKey Auditor's public key
+ * @returns {proof: string[], publicInputs: string[]} Proof and public inputs for the generated proof
+ */
 export const privateMint = async (
 	amount: bigint,
 	receiverPublicKey: bigint[],
-	auditorPublicKey: bigint[],
+	auditorPublicKey: bigint[]
 ) => {
 	// 0. get chain id
 	const network = await ethers.provider.getNetwork();
@@ -172,14 +176,23 @@ export const privateMint = async (
 	return { proof, publicInputs };
 };
 
-// private burn is transferring the encrypted amount to BURN_USER
-// which is the identity point (0, 1)
+
+/**
+ * Function for burning tokens privately
+ * Private burn is transferring the encrypted amount to BURN_USER which is the identity point (0, 1)
+ * @param user 
+ * @param userBalance User balance in plain 
+ * @param amount  Amount to be burned
+ * @param userEncryptedBalance User encrypted balance from eERC contract
+ * @param auditorPublicKey Auditor's public key
+ * @returns 
+ */
 export const privateBurn = async (
 	user: User,
 	userBalance: bigint,
 	amount: bigint,
 	userEncryptedBalance: bigint[],
-	auditorPublicKey: bigint[],
+	auditorPublicKey: bigint[]
 ) => {
 	return privateTransfer(
 		user,
@@ -187,17 +200,28 @@ export const privateBurn = async (
 		[0n, 1n],
 		amount,
 		userEncryptedBalance,
-		auditorPublicKey,
+		auditorPublicKey
 	);
 };
 
+/**
+ * Function for transferring tokens privately in the eERC protocol
+ * @param sender Sender
+ * @param senderBalance Sender balance in plain 
+ * @param receiverPublicKey Receiver's public key
+ * @param transferAmount Amount to be transferred
+ * @param senderEncryptedBalance Sender encrypted balance from eERC contract
+ * @param auditorPublicKey Auditor's public key
+ * @returns proof, publicInputs - Proof and public inputs for the generated proof
+ * @returns senderBalancePCT - Sender's balance after the transfer encrypted with Poseidon encryption
+ */
 export const privateTransfer = async (
 	sender: User,
 	senderBalance: bigint,
 	receiverPublicKey: bigint[],
 	transferAmount: bigint,
 	senderEncryptedBalance: bigint[],
-	auditorPublicKey: bigint[],
+	auditorPublicKey: bigint[]
 ) => {
 	const senderNewBalance = senderBalance - transferAmount;
 	// 1. encrypt the transfer amount with el-gamal for sender
@@ -277,11 +301,19 @@ export const privateTransfer = async (
 	};
 };
 
+/**
+ * Function for decrypting a PCT
+ * @param privateKey 
+ * @param pct PCT to be decrypted
+ * @param length Length of the original input array
+ * @returns decrypted - Decrypted message as an array
+ */
 export const decryptPCT = async (
 	privateKey: bigint,
 	pct: bigint[],
-	length = 1,
+	length = 1
 ) => {
+	// extract the ciphertext, authKey, and nonce from the pct
 	const ciphertext = pct.slice(0, 4);
 	const authKey = pct.slice(4, 6);
 	const nonce = pct[6];
@@ -291,64 +323,42 @@ export const decryptPCT = async (
 		authKey,
 		nonce,
 		privateKey,
-		length,
+		length
 	);
 
 	return decrypted;
 };
 
-export const getDecryptedBalance = async (
-	privateKey: bigint,
-	amountPCTs: AmountPCTStructOutput[],
-	balancePCT: bigint[],
-	encryptedBalance: bigint[][],
-) => {
-	let totalBalance = 0n;
 
-	if (balancePCT.some((e) => e !== 0n)) {
-		const decryptedBalancePCT = await decryptPCT(privateKey, balancePCT);
-		totalBalance += BigInt(decryptedBalancePCT[0]);
-	}
 
-	for (const [pct] of amountPCTs) {
-		if (pct.some((e) => e !== 0n)) {
-			const decryptedAmountPCT = await decryptPCT(privateKey, pct);
-			totalBalance += BigInt(decryptedAmountPCT[0]);
-		}
-	}
-
-	const decryptedBalance = decryptPoint(
-		privateKey,
-		encryptedBalance[0],
-		encryptedBalance[1],
-	);
-
-	if (totalBalance !== 0n) {
-		const expectedPoint = mulPointEscalar(Base8, totalBalance);
-		expect(decryptedBalance).to.deep.equal(expectedPoint);
-	}
-
-	return totalBalance;
-};
-
+/**
+ * Function for withdrawing tokens privately in the eERC protocol
+ * @param amount Amount to be withdrawn
+ * @param user 
+ * @param userEncryptedBalance User encrypted balance from eERC contract
+ * @param userBalance User plain balance
+ * @param auditorPublicKey Auditor's public key
+ * @returns proof, publicInputs - Proof and public inputs for the generated proof
+ * @returns userBalancePCT - User's balance after the withdrawal encrypted with Poseidon encryption
+ */
 export const withdraw = async (
 	amount: bigint,
 	user: User,
 	userEncryptedBalance: bigint[],
 	userBalance: bigint,
-	auditorPublicKey: bigint[],
+	auditorPublicKey: bigint[]
 ) => {
 	const newBalance = userBalance - amount;
 	const userPublicKey = user.publicKey;
 
-	// 2. create pct for the user with the newly calculated balance
+	// 1. create pct for the user with the newly calculated balance
 	const {
 		ciphertext: userCiphertext,
 		nonce: userNonce,
 		authKey: userAuthKey,
 	} = processPoseidonEncryption([newBalance], userPublicKey);
 
-	// 3. create pct for the auditor with the burn amount
+	// 2. create pct for the auditor with the withdrawal amount
 	const {
 		ciphertext: auditorCiphertext,
 		nonce: auditorNonce,
@@ -377,6 +387,7 @@ export const withdraw = async (
 		publicInputs,
 	};
 
+	// generate proof
 	const proof = await generateGnarkProof("WITHDRAW", JSON.stringify(input));
 
 	return {
@@ -388,4 +399,53 @@ export const withdraw = async (
 			userNonce.toString(),
 		],
 	};
+};
+
+
+
+/**
+ * Function for getting the decrypted balance of a user by decrypting amount and balance PCTs
+ * and comparing it with the decrypted balance from the eERC contract 
+ * @param privateKey 
+ * @param amountPCTs User amount PCTs
+ * @param balancePCT User balance PCT
+ * @param encryptedBalance User encrypted balance from eERC contract
+ * @returns totalBalance - balance of the user
+ */
+export const getDecryptedBalance = async (
+	privateKey: bigint,
+	amountPCTs: AmountPCTStructOutput[],
+	balancePCT: bigint[],
+	encryptedBalance: bigint[][]
+) => {
+	let totalBalance = 0n;
+
+	// decrypt the balance PCT
+	if (balancePCT.some((e) => e !== 0n)) {
+		const decryptedBalancePCT = await decryptPCT(privateKey, balancePCT);
+		totalBalance += BigInt(decryptedBalancePCT[0]);
+	}
+
+	// decrypt all the amount PCTs and add them to the total balance
+	for (const [pct] of amountPCTs) {
+		if (pct.some((e) => e !== 0n)) {
+			const decryptedAmountPCT = await decryptPCT(privateKey, pct);
+			totalBalance += BigInt(decryptedAmountPCT[0]);
+		}
+	}
+
+	// decrypt the balance from the eERC contract
+	const decryptedBalance = decryptPoint(
+		privateKey,
+		encryptedBalance[0],
+		encryptedBalance[1]
+	);
+
+	// compare the decrypted balance with the calculated balance
+	if (totalBalance !== 0n) {
+		const expectedPoint = mulPointEscalar(Base8, totalBalance);
+		expect(decryptedBalance).to.deep.equal(expectedPoint);
+	}
+
+	return totalBalance;
 };
