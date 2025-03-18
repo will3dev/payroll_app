@@ -56,6 +56,9 @@ func poseidonDecrypt(
 		}
 	}
 
+	// Check the last ciphertext element
+	api.AssertIsEqual(cipherText[decryptedLength], strategies[n][1])
+
 	return out[:length]
 }
 

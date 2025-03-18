@@ -35,5 +35,6 @@ func (circuit *WithdrawCircuit) Define(api frontend.API) error {
 
 	// Verify auditor's encrypted summary includes the burn amount and is encrypted with the auditor's public key
 	CheckPCTAuditor(api, babyjub, circuit.Auditor, circuit.ValueToBurn)
+
 	return nil
 }
