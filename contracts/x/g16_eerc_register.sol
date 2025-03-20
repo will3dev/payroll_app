@@ -175,6 +175,8 @@ library Pairing {
 contract x_RegisterVerifier {
     using Pairing for *;
 
+    error ProofInvalid();
+
     uint256 constant SNARK_SCALAR_FIELD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
     uint256 constant PRIME_Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
@@ -325,11 +327,15 @@ contract x_RegisterVerifier {
             Pairing.pairing(Pairing.negate(proof.A), proof.B, vk.alfa1, vk.beta2, vk_x, vk.gamma2, proof.C, vk.delta2);
     }
 
-    function verifyProof(uint256[8] calldata proof, uint256[5] calldata input) external view returns (bool) {
+    function verifyProof(uint256[8] calldata proof, uint256[5] calldata input) external view {
         uint256[2] memory a = [proof[0], proof[1]];
         uint256[2][2] memory b = [[proof[2], proof[3]], [proof[4], proof[5]]];
         uint256[2] memory c = [proof[6], proof[7]];
 
-        return _verifyProof(a, b, c, input);
+        bool isVerified = _verifyProof(a, b, c, input);
+        if (!isVerified) {
+            // revert("Invalid proof");
+            revert ProofInvalid();
+        }
     }
 }
