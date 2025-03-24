@@ -1,9 +1,5 @@
 name: "CI"
 
-env:
-  DOTENV_CONFIG_PATH: "./.env.example"
-  HARDHAT_VAR_MNEMONIC: "test test test test test test test test test test test junk"
-
 on:
   workflow_dispatch:
   pull_request:
@@ -26,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version-file: ".nvmrc"
 
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v4
@@ -43,7 +39,9 @@ jobs:
         run: |
           touch eERC-tests.txt && \
           npx hardhat coverage | tee eERC-tests.txt || true && \
-          cat eERC-tests.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' ? >> $GITHUB_STEP_SUMMARY && \
+          cat eERC-tests.txt >> $GITHUB_STEP_SUMMARY && \
+          echo '```' ? >> $GITHUB_STEP_SUMMARY
 
       - name: "Run linter"
-        run: "npm run lint:sol"
+        run: "npm run lint"

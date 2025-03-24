@@ -1,20 +1,34 @@
 {
-  "name": "encryptederc",
-  "version": "1.0.0",
-  "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.1.0",
-    "@zk-kit/baby-jubjub": "^1.0.3",
-    "hardhat": "^2.22.15",
-    "maci-crypto": "^2.0.0",
-    "poseidon-lite": "^0.3.0",
-    "solhint": "^5.0.5"
-  },
-  "scripts": {
-    "test": "mocha 'src/**/*.test.js'",
-    "postinstall": "cd zk && make",
-    "lint:sol": "solhint '**/*.sol' --config ./.solhint.json --ignore-path ./.solhintignore --max-warnings 0"
-  },
-  "keywords": [],
-  "author": ""
+	"name": "encryptederc",
+	"version": "1.0.0",
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
+		"@nomicfoundation/hardhat-ethers": "^3.0.8",
+		"@openzeppelin/contracts": "^5.1.0",
+		"@typechain/hardhat": "^9.1.0",
+		"@types/jest": "^29.5.14",
+		"@types/mocha": "^10.0.10",
+		"@zk-kit/baby-jubjub": "^1.0.3",
+		"dotenv": "^16.4.7",
+		"hardhat": "^2.22.15",
+		"hardhat-gas-reporter": "^2.2.2",
+		"maci-crypto": "^2.0.0",
+		"poseidon-lite": "^0.3.0",
+		"solhint": "^5.0.5",
+		"solidity-coverage": "^0.8.14"
+	},
+	"scripts": {
+		"test": "mocha 'src/**/*.test.js'",
+		"postinstall": "cd zk && make",
+		"lint:sol": "solhint '**/*.sol' --config ./.solhint.json --ignore-path ./.solhintignore --max-warnings 0",
+		"lint:ts": "npx biome lint .",
+		"lint": "npm run lint:sol && npm run lint:ts"
+	},
+	"keywords": [],
+	"author": "",
+	"repository": {
+		"url": "https://github.com/ava-labs/EncryptedERC",
+		"type": "git"
+	}
 }
