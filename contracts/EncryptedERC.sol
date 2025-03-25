@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// (c) 2025, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
+// SPDX-License-Identifier: Ecosystem
 pragma solidity 0.8.27;
 
 // contracts
@@ -23,6 +26,15 @@ import {ITransferVerifier} from "./interfaces/verifiers/ITransferVerifier.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
+//             /$$$$$$$$ /$$$$$$$   /$$$$$$
+//            | $$_____/| $$__  $$ /$$__  $$
+//    /$$$$$$ | $$      | $$  \ $$| $$  \__/
+//   /$$__  $$| $$$$$   | $$$$$$$/| $$
+//  | $$$$$$$$| $$__/   | $$__  $$| $$
+//  | $$_____/| $$      | $$  \ $$| $$    $$
+//  |  $$$$$$$| $$$$$$$$| $$  | $$|  $$$$$$/
+//   \_______/|________/|__/  |__/ \______/
+//
 contract EncryptedERC is TokenTracker, EncryptedUserBalances {
     // registrar contract
     IRegistrar public registrar;

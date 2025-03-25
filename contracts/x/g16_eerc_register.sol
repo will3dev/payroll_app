@@ -22,7 +22,8 @@
 pragma solidity ^0.8.0;
 
 library Pairing {
-    uint256 constant PRIME_Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant PRIME_Q =
+        21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     struct G1Point {
         uint256 X;
@@ -50,7 +51,10 @@ library Pairing {
     /*
      * @return The sum of two points of G1
      */
-    function plus(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory r) {
+    function plus(
+        G1Point memory p1,
+        G1Point memory p2
+    ) internal view returns (G1Point memory r) {
         uint256[4] memory input;
         input[0] = p1.X;
         input[1] = p1.Y;
@@ -63,7 +67,9 @@ library Pairing {
             success := staticcall(sub(gas(), 2000), 6, input, 0xc0, r, 0x60)
             // Use "invalid" to make gas estimation work
             switch success
-            case 0 { invalid() }
+            case 0 {
+                invalid()
+            }
         }
 
         require(success, "pairing-add-failed");
@@ -81,7 +87,9 @@ library Pairing {
             success := staticcall(sub(gas(), 2000), 6, input, 0xc0, r, 0x60)
             // Use "invalid" to make gas estimation work
             switch success
-            case 0 { invalid() }
+            case 0 {
+                invalid()
+            }
         }
 
         require(success, "pairing-add-failed");
@@ -92,7 +100,10 @@ library Pairing {
      *         p == p.scalar_mul(1) and p.plus(p) == p.scalar_mul(2) for all
      *         points p.
      */
-    function scalar_mul(G1Point memory p, uint256 s) internal view returns (G1Point memory r) {
+    function scalar_mul(
+        G1Point memory p,
+        uint256 s
+    ) internal view returns (G1Point memory r) {
         uint256[3] memory input;
         input[0] = p.X;
         input[1] = p.Y;
@@ -103,7 +114,9 @@ library Pairing {
             success := staticcall(sub(gas(), 2000), 7, input, 0x80, r, 0x60)
             // Use "invalid" to make gas estimation work
             switch success
-            case 0 { invalid() }
+            case 0 {
+                invalid()
+            }
         }
         require(success, "pairing-mul-failed");
     }
@@ -112,7 +125,10 @@ library Pairing {
      * Same as scalar_mul but accepts raw input instead of struct,
      * Which avoid extra allocation. provided input can be allocated outside and re-used multiple times
      */
-    function scalar_mul_raw(uint256[3] memory input, G1Point memory r) internal view {
+    function scalar_mul_raw(
+        uint256[3] memory input,
+        G1Point memory r
+    ) internal view {
         bool success;
 
         // solium-disable-next-line security/no-inline-assembly
@@ -120,7 +136,9 @@ library Pairing {
             success := staticcall(sub(gas(), 2000), 7, input, 0x80, r, 0x60)
             // Use "invalid" to make gas estimation work
             switch success
-            case 0 { invalid() }
+            case 0 {
+                invalid()
+            }
         }
         require(success, "pairing-mul-failed");
     }
@@ -160,10 +178,19 @@ library Pairing {
 
         // solium-disable-next-line security/no-inline-assembly
         assembly {
-            success := staticcall(sub(gas(), 2000), 8, add(input, 0x20), mul(inputSize, 0x20), out, 0x20)
+            success := staticcall(
+                sub(gas(), 2000),
+                8,
+                add(input, 0x20),
+                mul(inputSize, 0x20),
+                out,
+                0x20
+            )
             // Use "invalid" to make gas estimation work
             switch success
-            case 0 { invalid() }
+            case 0 {
+                invalid()
+            }
         }
 
         require(success, "pairing-opcode-failed");
@@ -177,8 +204,10 @@ contract x_RegisterVerifier {
 
     error ProofInvalid();
 
-    uint256 constant SNARK_SCALAR_FIELD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-    uint256 constant PRIME_Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+    uint256 constant SNARK_SCALAR_FIELD =
+        21888242871839275222246405745257275088548364400416034343698204186575808495617;
+    uint256 constant PRIME_Q =
+        21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     struct VerifyingKey {
         Pairing.G1Point alfa1;
@@ -196,37 +225,65 @@ contract x_RegisterVerifier {
 
     function verifyingKey() internal pure returns (VerifyingKey memory vk) {
         vk.alfa1 = Pairing.G1Point(
-            uint256(21697709914128963955461930647037514660049610687078315470791601794727968702069),
-            uint256(15663569821501808146688136207389966991592584234414313632949717458970935964082)
+            uint256(
+                21697709914128963955461930647037514660049610687078315470791601794727968702069
+            ),
+            uint256(
+                15663569821501808146688136207389966991592584234414313632949717458970935964082
+            )
         );
         vk.beta2 = Pairing.G2Point(
             [
-                uint256(5234360756731482591865666409204305387425652391492811312417493744615018616543),
-                uint256(9183590372223953213301645393176169542094112274540256993035362805834406652206)
+                uint256(
+                    5234360756731482591865666409204305387425652391492811312417493744615018616543
+                ),
+                uint256(
+                    9183590372223953213301645393176169542094112274540256993035362805834406652206
+                )
             ],
             [
-                uint256(17143746531390810786950123729994840219722296875883566238963139016679990112488),
-                uint256(2170009295616662188972525068242312368038812003885371603477613028488594626161)
+                uint256(
+                    17143746531390810786950123729994840219722296875883566238963139016679990112488
+                ),
+                uint256(
+                    2170009295616662188972525068242312368038812003885371603477613028488594626161
+                )
             ]
         );
         vk.gamma2 = Pairing.G2Point(
             [
-                uint256(811874908620249370355031396127226558574076039002130528506314818329437742394),
-                uint256(12689465906482559615819508882492652836671130823928416363709666783321281833888)
+                uint256(
+                    811874908620249370355031396127226558574076039002130528506314818329437742394
+                ),
+                uint256(
+                    12689465906482559615819508882492652836671130823928416363709666783321281833888
+                )
             ],
             [
-                uint256(13180593284684781869456687981752745641940735266081531458449283402163774551797),
-                uint256(19823383019693996408524788779785142354505310955402825161179780490557236579211)
+                uint256(
+                    13180593284684781869456687981752745641940735266081531458449283402163774551797
+                ),
+                uint256(
+                    19823383019693996408524788779785142354505310955402825161179780490557236579211
+                )
             ]
         );
         vk.delta2 = Pairing.G2Point(
             [
-                uint256(9103249030533291351105285161635882654371747275545715909468444486143008000589),
-                uint256(4378220968364020232375202624540411030022836958965017703838616818978955869394)
+                uint256(
+                    9103249030533291351105285161635882654371747275545715909468444486143008000589
+                ),
+                uint256(
+                    4378220968364020232375202624540411030022836958965017703838616818978955869394
+                )
             ],
             [
-                uint256(12592275589479125073893572486990774876321011715282661916843852409684513672440),
-                uint256(14391025667676145883320945164632416168640877153035061117616042332082514008684)
+                uint256(
+                    12592275589479125073893572486990774876321011715282661916843852409684513672440
+                ),
+                uint256(
+                    14391025667676145883320945164632416168640877153035061117616042332082514008684
+                )
             ]
         );
     }
@@ -256,11 +313,12 @@ contract x_RegisterVerifier {
      * @returns Whether the proof is valid given the hardcoded verifying key
      *          above and the public inputs
      */
-    function _verifyProof(uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] calldata input)
-        internal
-        view
-        returns (bool r)
-    {
+    function _verifyProof(
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint256[5] calldata input
+    ) internal view returns (bool r) {
         Proof memory proof;
         proof.A = Pairing.G1Point(a[0], a[1]);
         proof.B = Pairing.G2Point([b[0][0], b[0][1]], [b[1][0], b[1][1]]);
@@ -281,7 +339,10 @@ contract x_RegisterVerifier {
 
         // Make sure that every input is less than the snark scalar field
         for (uint256 i = 0; i < input.length; i++) {
-            require(input[i] < SNARK_SCALAR_FIELD, "verifier-gte-snark-scalar-field");
+            require(
+                input[i] < SNARK_SCALAR_FIELD,
+                "verifier-gte-snark-scalar-field"
+            );
         }
 
         VerifyingKey memory vk = verifyingKey();
@@ -300,34 +361,70 @@ contract x_RegisterVerifier {
         // temporary point to avoid extra allocations in accumulate
         Pairing.G1Point memory q = Pairing.G1Point(0, 0);
 
-        vk_x.X = uint256(2654123480740335146013459542645270970095614811820985705469333788638679671856); // vk.K[0].X
-        vk_x.Y = uint256(8345352353231980796271067531224098778668183716987311655723269767623391419911); // vk.K[0].Y
-        mul_input[0] = uint256(10936913620240962698252953212124049450407804017652883022393535584865368280686); // vk.K[1].X
-        mul_input[1] = uint256(5982141746077514453522289606461006876695322969339394910219624929656987880035); // vk.K[1].Y
+        vk_x.X = uint256(
+            2654123480740335146013459542645270970095614811820985705469333788638679671856
+        ); // vk.K[0].X
+        vk_x.Y = uint256(
+            8345352353231980796271067531224098778668183716987311655723269767623391419911
+        ); // vk.K[0].Y
+        mul_input[0] = uint256(
+            10936913620240962698252953212124049450407804017652883022393535584865368280686
+        ); // vk.K[1].X
+        mul_input[1] = uint256(
+            5982141746077514453522289606461006876695322969339394910219624929656987880035
+        ); // vk.K[1].Y
         mul_input[2] = input[0];
         accumulate(mul_input, q, add_input, vk_x); // vk_x += vk.K[1] * input[0]
-        mul_input[0] = uint256(9488455424834331112990201802774002994782057041935220208960633130379191186733); // vk.K[2].X
-        mul_input[1] = uint256(5058624889574633249542905129776414921410936004212215689411163610928769178433); // vk.K[2].Y
+        mul_input[0] = uint256(
+            9488455424834331112990201802774002994782057041935220208960633130379191186733
+        ); // vk.K[2].X
+        mul_input[1] = uint256(
+            5058624889574633249542905129776414921410936004212215689411163610928769178433
+        ); // vk.K[2].Y
         mul_input[2] = input[1];
         accumulate(mul_input, q, add_input, vk_x); // vk_x += vk.K[2] * input[1]
-        mul_input[0] = uint256(21496681732071167952939217884530977528638939311898890686280794904424577141563); // vk.K[3].X
-        mul_input[1] = uint256(7997062357324586497858542971342241434925078713780972001149153827728495502069); // vk.K[3].Y
+        mul_input[0] = uint256(
+            21496681732071167952939217884530977528638939311898890686280794904424577141563
+        ); // vk.K[3].X
+        mul_input[1] = uint256(
+            7997062357324586497858542971342241434925078713780972001149153827728495502069
+        ); // vk.K[3].Y
         mul_input[2] = input[2];
         accumulate(mul_input, q, add_input, vk_x); // vk_x += vk.K[3] * input[2]
-        mul_input[0] = uint256(13835922076241191437474919508001668012898347536992944846074209085462381184448); // vk.K[4].X
-        mul_input[1] = uint256(1631190038228480092538948200451855754003751673286347205985209152346907248400); // vk.K[4].Y
+        mul_input[0] = uint256(
+            13835922076241191437474919508001668012898347536992944846074209085462381184448
+        ); // vk.K[4].X
+        mul_input[1] = uint256(
+            1631190038228480092538948200451855754003751673286347205985209152346907248400
+        ); // vk.K[4].Y
         mul_input[2] = input[3];
         accumulate(mul_input, q, add_input, vk_x); // vk_x += vk.K[4] * input[3]
-        mul_input[0] = uint256(7874334588521440322291120000065166662035136833630603160382590756952366253951); // vk.K[5].X
-        mul_input[1] = uint256(6990217712956415068996527690182038844740937912373559879913881220999456692792); // vk.K[5].Y
+        mul_input[0] = uint256(
+            7874334588521440322291120000065166662035136833630603160382590756952366253951
+        ); // vk.K[5].X
+        mul_input[1] = uint256(
+            6990217712956415068996527690182038844740937912373559879913881220999456692792
+        ); // vk.K[5].Y
         mul_input[2] = input[4];
         accumulate(mul_input, q, add_input, vk_x); // vk_x += vk.K[5] * input[4]
 
         return
-            Pairing.pairing(Pairing.negate(proof.A), proof.B, vk.alfa1, vk.beta2, vk_x, vk.gamma2, proof.C, vk.delta2);
+            Pairing.pairing(
+                Pairing.negate(proof.A),
+                proof.B,
+                vk.alfa1,
+                vk.beta2,
+                vk_x,
+                vk.gamma2,
+                proof.C,
+                vk.delta2
+            );
     }
 
-    function verifyProof(uint256[8] calldata proof, uint256[5] calldata input) external view {
+    function verifyProof(
+        uint256[8] calldata proof,
+        uint256[5] calldata input
+    ) external view {
         uint256[2] memory a = [proof[0], proof[1]];
         uint256[2][2] memory b = [[proof[2], proof[3]], [proof[4], proof[5]]];
         uint256[2] memory c = [proof[6], proof[7]];

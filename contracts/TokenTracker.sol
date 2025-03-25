@@ -1,10 +1,14 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// (c) 2025, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
+// SPDX-License-Identifier: Ecosystem
+
 pragma solidity 0.8.27;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 contract TokenTracker is Ownable2Step {
-    // starting from 1 becase 0 is for standalone version of the EncryptedERC
+    // starting from 1 because 0 is for standalone version of the EncryptedERC
     uint256 public nextTokenId = 1;
     // indicates if the contract is a converter
     bool public isConverter;

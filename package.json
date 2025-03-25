@@ -15,13 +15,15 @@
 		"hardhat-gas-reporter": "^2.2.2",
 		"maci-crypto": "^2.0.0",
 		"poseidon-lite": "^0.3.0",
+		"prettier": "^3.5.3",
+		"prettier-plugin-solidity": "^1.4.2",
 		"solhint": "^5.0.5",
 		"solidity-coverage": "^0.8.14"
 	},
 	"scripts": {
 		"test": "mocha 'src/**/*.test.js'",
 		"postinstall": "cd zk && make",
-		"lint:sol": "solhint '**/*.sol' --config ./.solhint.json --ignore-path ./.solhintignore --max-warnings 0",
+		"lint:sol": "solhint '**/*.sol' --config ./.solhint.json --ignore-path ./.solhintignore --max-warnings 0 && npx prettier --check '**/*.sol' --config ./.prettierrc",
 		"lint:ts": "npx biome lint .",
 		"lint": "npm run lint:sol && npm run lint:ts"
 	},

@@ -1,5 +1,10 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// (c) 2025, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
+// SPDX-License-Identifier: Ecosystem
+
 pragma solidity 0.8.27;
+
 import {EncryptedBalance, EGCT, BalanceHistory, AmountPCT} from "./types/Types.sol";
 import {BabyJubJub} from "./libraries/BabyJubJub.sol";
 
