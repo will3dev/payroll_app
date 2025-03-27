@@ -22,7 +22,6 @@ const config: HardhatUserConfig = {
 	},
 	networks: {
 		hardhat: {
-			chainId: 43114,
 			forking: {
 				url: RPC_URL,
 				blockNumber: 59121339,

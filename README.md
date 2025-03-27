@@ -6,7 +6,9 @@
 
 # Encrypted ERC-20 Protocol
 
-The Encrypted ERC-20 (eERC) standard enables secure and confidential token transfers on Avalanche blockchains. Leveraging zk-SNARKs and partially homomorphic encryption, the eERC protocol offers robust privacy without requiring protocol-level modifications or off-chain intermediaries.
+The Encrypted ERC-20 (eERC) standard enables secure and confidential token transfers on Avalanche blockchains. Leveraging zk-SNARKs and partially homomorphic encryption, the eERC protocol offers robust privacy without requiring protocol-level modifications or off-chain intermediaries. 
+
+AvaCloud API documentation can be found [here](https://docs.avacloud.io/encrypted-erc/getting-started/what-is-encrypted-erc).
 
 ## Key features
 
@@ -44,17 +46,54 @@ You need following dependencies for setup:
    ```sh
    npm install
    ```
-
    Note: This command will run a bash script to compile gnark's circuits, if this does not work:
    In [zk](#zk) directory run the following command to build manually:
-
-   On arm64:
+   ```sh
+   make
+   ```
+   or
 
    ```sh
-   go build -o ./build/encryptedERC
+   go build -o ./build/encryptedERC ./cmd/
    ```
+3. Compile the contracts
 
-### Run Tests/Coverage
+   ```sh
+   npx hardhat compile
+   ```
+## Deployment (Local)
+
+### Standalone
+The Standalone version lets users create entirely new private ERC-20 tokens with built-in privacy, supporting confidential minting and burning.
+
+1. Start the local node
+```bash
+npx hardhat node
+```
+
+2. Deploy the contract
+```bash
+npx hardhat run scripts/deploy-standalone.ts --network localhost
+```
+
+Refer to the [scripts/deploy-standalone.ts](scripts/deploy-standalone.ts) script for deployment examples.
+
+### Converter
+The Converter version adds privacy features to existing ERC-20 tokens, enabling users to convert standard ERC-20 tokens to private ones and switch between public and private states through deposit and withdrawal functions.
+
+1. Start the local node
+```bash
+npx hardhat node
+```
+
+2. Deploy the contract
+```bash
+npx hardhat run scripts/deploy-converter.ts --network localhost
+```
+
+Refer to the [scripts/deploy-converter.ts](scripts/deploy-converter.ts) script for deployment examples.
+
+## Run Tests/Coverage
 
 Contract tests:
 
@@ -84,58 +123,16 @@ npx hardhat coverage
 ····························|·················|···············|·················|················|···············
 |      privateMint          ·        704,167  ·      752,463  ·        713,839  ·            10  ·        0.02  │
 ····························|·················|···············|·················|················|···············
-|      setAuditorPublicKey  ·              -  ·            -  ·        103,800  ·             4  ·           △  │
+|      setAuditorPublicKey  ·              -  ·            -  ·        103,800  ·             4  ·           -  │
 ····························|·················|···············|·················|················|···············
-|      setTokenBlacklist    ·              -  ·            -  ·         46,443  ·             1  ·           △  │
+|      setTokenBlacklist    ·              -  ·            -  ·         46,443  ·             1  ·           -  │
 ····························|·················|···············|·················|················|···············
 |      transfer             ·        929,453  ·      929,477  ·        929,469  ·             6  ·        0.02  │
 ····························|·················|···············|·················|················|···············
 |      withdraw             ·        764,964  ·      820,100  ·        786,662  ·             6  ·        0.02  │
 ····························|·················|···············|·················|················|···············
-|  FeeERC20                 ·                                                                                   │
-····························|·················|···············|·················|················|···············
-|      approve              ·              -  ·            -  ·         46,335  ·             1  ·           △  │
-····························|·················|···············|·················|················|···············
-|      mint                 ·              -  ·            -  ·         68,508  ·             1  ·           △  │
-····························|·················|···············|·················|················|···············
-|  Registrar                ·                                                                                   │
-····························|·················|···············|·················|················|···············
 |      register             ·        315,948  ·      316,008  ·        315,985  ·            20  ·        0.01  │
 ····························|·················|···············|·················|················|···············
-|  SimpleERC20              ·                                                                                   │
-····························|·················|···············|·················|················|···············
-|      approve              ·         46,323  ·       46,383  ·         46,350  ·            16  ·           △  │
-····························|·················|···············|·················|················|···············
-|      mint                 ·         68,433  ·       68,457  ·         68,441  ·             6  ·           △  │
-····························|·················|···············|·················|················|···············
-|  Deployments                                ·                                 ·  % of limit    ·              │
-····························|·················|···············|·················|················|···············
-|  BabyJubJub               ·              -  ·            -  ·        447,616  ·         1.5 %  ·        0.01  │
-····························|·················|···············|·················|················|···············
-|  EncryptedERC             ·      3,356,864  ·    3,381,990  ·      3,369,427  ·        11.2 %  ·        0.07  │
-····························|·················|···············|·················|················|···············
-|  FeeERC20                 ·              -  ·            -  ·        658,116  ·         2.2 %  ·        0.01  │
-····························|·················|···············|·················|················|···············
-|  MintVerifier             ·              -  ·            -  ·      1,769,766  ·         5.9 %  ·        0.04  │
-····························|·················|···············|·················|················|···············
-|  Registrar                ·              -  ·            -  ·        407,830  ·         1.4 %  ·        0.01  │
-····························|·················|···············|·················|················|···············
-|  RegistrationVerifier     ·              -  ·            -  ·      1,213,044  ·           4 %  ·        0.03  │
-····························|·················|···············|·················|················|···············
-|  SimpleERC20              ·        557,086  ·      557,146  ·        557,101  ·         1.9 %  ·        0.01  │
-····························|·················|···············|·················|················|···············
-|  TransferVerifier         ·              -  ·            -  ·      2,004,265  ·         6.7 %  ·        0.04  │
-····························|·················|···············|·················|················|···············
-|  WithdrawVerifier         ·              -  ·            -  ·      1,534,779  ·         5.1 %  ·        0.03  │
-····························|·················|···············|·················|················|···············
-|  Key                                                                                                          │
-·················································································································
-|  ◯  Execution gas for this method does not include intrinsic gas overhead                                     │
-·················································································································
-|  △  Cost was non-zero but below the precision setting for the currency display (see options)                  │
-·················································································································
-|  Toolchain:  hardhat                                                                                          │
-·················································································································
 ```
 
 ### ⏱️ Circuit Benchmarks for Proof Generation
@@ -148,3 +145,5 @@ Tested on M3 Pro CPU:
 | Private Mint     | 359 ms           |
 | Private Burn     | 360 ms           |
 | Private Transfer | 606 ms           |
+
+
