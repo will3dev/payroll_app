@@ -31,8 +31,8 @@ const main = async () => {
 	const encryptedERC_ = await encryptedERCFactory.connect(deployer).deploy({
 		registrar: registrar.target,
 		isConverter: true, // This is a converter eERC
-		name: "Test",
-		symbol: "TEST",
+		name: "",
+		symbol: "",
 		mintVerifier,
 		withdrawVerifier,
 		transferVerifier,
@@ -50,7 +50,7 @@ const main = async () => {
 	await tx.wait();
 
 	console.log("ERC20 deployed at:", erc20.target);
-	console.log("Minted 10000 TEST to deployer");
+	console.log("Minted 10000 erc20 to deployer");
 
 	console.table({
 		registrationVerifier,
