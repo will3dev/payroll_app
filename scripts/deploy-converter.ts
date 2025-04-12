@@ -1,20 +1,21 @@
 import { ethers } from "hardhat";
-import { deployLibrary } from "../test/helpers";
+import { deployLibrary, deployVerifiers } from "../test/helpers";
 import { EncryptedERC__factory } from "../typechain-types";
 import { DECIMALS } from "./constants";
-import { deployProductionVerifiers } from "./helpers";
 
 const main = async () => {
 	// get deployer
 	const [deployer] = await ethers.getSigners();
 
 	// deploy verifiers
+	// if false, deploys unsecure verifiers for dev purposes
+	// if true, deploys verifiers for prod, generated with proper trusted setup
 	const {
 		registrationVerifier,
 		mintVerifier,
 		withdrawVerifier,
 		transferVerifier,
-	} = await deployProductionVerifiers(deployer);
+	} = await deployVerifiers(deployer, false); 
 
 	// deploy babyjub library
 	const babyJubJub = await deployLibrary(deployer);
