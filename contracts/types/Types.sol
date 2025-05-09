@@ -23,6 +23,7 @@ struct CreateEncryptedERCParams {
     address mintVerifier;
     address withdrawVerifier;
     address transferVerifier;
+    address batchTransferVerifier;
 }
 
 struct AmountPCT {
@@ -71,7 +72,14 @@ struct TransferProof {
     uint256[32] publicSignals;
 }
 
+struct BatchTransferProof {
+    ProofPoints proofPoints;
+    uint256[150] publicSignals; // Total number of public signals from the circuit 
+}
+
 struct WithdrawProof {
     ProofPoints proofPoints;
     uint256[16] publicSignals;
 }
+
+

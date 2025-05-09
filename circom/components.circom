@@ -183,6 +183,67 @@ template ElGamalDecrypt() {
     outy <== decryptedPoint.yout;
 }
 
+template ElGamalAdd() {
+    signal input aC1[2];
+    signal input aC2[2];
+    signal input bC1[2];
+    signal input bC2[2];
+    signal output sumC1[2];
+    signal output sumC2[2];
+
+    component addC1 = BabyAdd();
+    addC1.x1 <== aC1[0];
+    addC1.y1 <== aC1[1];
+    addC1.x2 <== bC1[0];
+    addC1.y2 <== bC1[1];
+    sumC1[0] <== addC1.xout;
+    sumC1[1] <== addC1.yout;
+
+    component addC2 = BabyAdd();
+    addC2.x1 <== aC2[0];
+    addC2.y1 <== aC2[1];
+    addC2.x2 <== bC2[0];
+    addC2.y2 <== bC2[1];
+    sumC2[0] <== addC2.xout;
+    sumC2[1] <== addC2.yout;
+}
+
+template ElGamalSub() {
+    signal input aC1[2];
+    signal input aC2[2];
+    signal input bC1[2];
+    signal input bC2[2];
+    signal output diffC1[2];
+    signal output diffC2[2];
+
+    // negate bC1 and bC2
+    signal negC1[2];
+    negC1[0] <== 0 - bC1[0];
+    negC1[1] <== bC1[1];
+
+    signal negC2[2];
+    negC2[0] <== 0 - bC2[0];
+    negC2[1] <== bC2[1];
+
+    component addC1 = BabyAdd()
+    addC1.x1 <== aC1[0];
+    addC1.y1 <== aC1[1];
+    addC1.x2 <== negC1[0];
+    addC1.y2 <== negC1[1];
+    diffC1[0] <== addC1.xout;
+    diffC1[1] <== addC1.yout;
+
+    component addC2 = BabyAdd();
+    addC2.x1 <== aC2[0];
+    addC2.y1 <== aC2[1];
+    addC2.x2 <== negC2[0];
+    addC2.y2 <== negC2[1];
+    diffC2[0] <== addC2.xout;
+    diffC2[1] <== addC2.yout;
+}
+
+
+
 template CheckPublicKey() {
     signal input privKey;
     signal input pubKey[2];
@@ -287,6 +348,8 @@ template CheckReceiverValue() {
     component receiverValueToPoint = BabyPbk();
     receiverValueToPoint.in <== receiverValue;
 
+
+    // completes encryption of values
     component receiverValueEncrypt = ElGamalEncrypt();
     receiverValueEncrypt.random <== receiverRandom;
     receiverValueEncrypt.pk[0] <== receiverPublicKey[0];
@@ -294,6 +357,7 @@ template CheckReceiverValue() {
     receiverValueEncrypt.msg[0] <== receiverValueToPoint.Ax;
     receiverValueEncrypt.msg[1] <== receiverValueToPoint.Ay;
 
+    // checks that the provided ciphertext matches the calculated ciphertext
     receiverValueEncrypt.encryptedC1X === receiverValueC1[0];
     receiverValueEncrypt.encryptedC1Y === receiverValueC1[1];
     receiverValueEncrypt.encryptedC2X === receiverValueC2[0];

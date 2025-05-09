@@ -14,7 +14,7 @@ import {BabyJubJub} from "./libraries/BabyJubJub.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // types
-import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance, AmountPCT, MintProof, TransferProof, WithdrawProof} from "./types/Types.sol";
+import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance, AmountPCT, MintProof, TransferProof, BatchTransferProof, WithdrawProof} from "./types/Types.sol";
 
 // errors
 import {UserNotRegistered, InvalidProof, TransferFailed, UnknownToken, InvalidChainId, InvalidNullifier, ZeroAddress} from "./errors/Errors.sol";
@@ -24,6 +24,7 @@ import {IRegistrar} from "./interfaces/IRegistrar.sol";
 import {IMintVerifier} from "./interfaces/verifiers/IMintVerifier.sol";
 import {IWithdrawVerifier} from "./interfaces/verifiers/IWithdrawVerifier.sol";
 import {ITransferVerifier} from "./interfaces/verifiers/ITransferVerifier.sol";
+import {IBatchTransferVerifier} from "./interfaces/verifiers/IBatchTransferVerifier.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -65,6 +66,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     IMintVerifier public mintVerifier;
     IWithdrawVerifier public withdrawVerifier;
     ITransferVerifier public transferVerifier;
+    IBatchTransferVerifier public batchTransferVerifier;
 
     /// @notice Token metadata
     string public name;
@@ -120,6 +122,21 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     );
 
     /**
+     * @notice Emitted when a batch transfer operation occurs
+     * @param from Address of the sender
+     * @param to Array of addresses to transfer tokens to
+     * @param auditorPCT Auditor PCT values for compliance tracking
+     * @param auditorAddress Address of the auditor
+     * @dev This event is emitted when tokens are privately transferred in batch
+     */
+     event PrivateBatchTransfer(
+        address indexed from,
+        address[] to,
+        uint256[7] auditorPCT,
+        address indexed auditorAddress
+     );
+
+    /**
      * @notice Emitted when a deposit operation occurs
      * @param user Address of the user making the deposit
      * @param amount Amount of tokens deposited
@@ -169,7 +186,8 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             params.registrar == address(0) ||
             params.mintVerifier == address(0) ||
             params.withdrawVerifier == address(0) ||
-            params.transferVerifier == address(0)
+            params.transferVerifier == address(0) ||
+            params.batchTransferVerifier == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -179,6 +197,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         mintVerifier = IMintVerifier(params.mintVerifier);
         withdrawVerifier = IWithdrawVerifier(params.withdrawVerifier);
         transferVerifier = ITransferVerifier(params.transferVerifier);
+        batchTransferVerifier = IBatchTransferVerifier(params.batchTransferVerifier);
 
         // if contract is not a converter, then set the name and symbol
         if (!params.isConverter) {
@@ -465,6 +484,176 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             emit PrivateTransfer(from, to, auditorPCT, auditor);
         }
     }
+
+
+    /** 
+     * @notice Performs a batch transfer between multiple users
+     * @param toAddresses Array of addresses to transfer tokens to
+     * @param tokenId ID of the token to transfer
+     * @param proof The transfer proof proving the validity of the transfer
+     * @param balancePCT The balance PCT for the sender after the transfer
+     * @dev This function:
+     *      1. Validates the sender is registered
+     *      2. Verifies the sender's public key matches the proof
+     *      3. Verifies the auditor's public key matches the proof
+     *      4. Verifies the zero-knowledge proof
+     *      5. Iterates through the receivers and performs a private transfer for each
+     *
+     * Requirements:
+     * - Auditor must be set
+     * - Contract must be in standalone mode
+     * - Both sender and receivers must be registered
+    */
+    function batchTransfer(
+        address[] calldata toAddresses,
+        uint256 tokenId,
+        BatchTransferProof calldata proof,
+        uint256[10][7] calldata balancePCT
+    ) external onlyIfAuditorSet {
+        uint256[150] memory publicInputs = proof.publicSignals;
+        address from = msg.sender; // from address is assumed to be msg sender
+
+        // validate user registration
+        {
+            if (
+                !registrar.isUserRegistered(from) ||
+                !registrar.isUserRegistered(to)
+            ) {
+                revert UserNotRegistered();
+            }
+        }
+
+        // validate auditor public key
+        {
+            if (
+                auditorPublicKey.x != publicInputs[22] ||
+                auditorPublicKey.y != publicInputs[23]
+            ) {
+                revert InvalidProof();
+            }
+        }
+
+        // verify the zero-knowledge proof 
+        bool isVerified = transferVerifier.verifyProof(
+            proof.proofPoints.a,
+            proof.proofPoints.b,
+            proof.proofPoints.c,
+            proof.publicSignals
+        );
+        if (!isVerified) {
+            revert InvalidProof();
+        }
+
+
+        // construct an array of public inputs required for each transfer
+        uint256[10][32] memory individualTransferPublicInputs;
+
+        for (uint256 i = 0; i < toAddresses.length; i++) {
+            // Sender public key (same for all transfers)
+            individualTransferPublicInputs[i][0] = publicInputs[0];  // senderPublicKey[0]
+            individualTransferPublicInputs[i][1] = publicInputs[1];  // senderPublicKey[1]
+            
+            // Receiver public key (unique per transfer)
+            individualTransferPublicInputs[i][2] = publicInputs[2 + i*2];   // receiverPublicKey[i][0]
+            individualTransferPublicInputs[i][3] = publicInputs[3 + i*2];   // receiverPublicKey[i][1]
+            
+            // Auditor public key (same for all transfers)
+            individualTransferPublicInputs[i][4] = publicInputs[22];  // auditorPublicKey[0]
+            individualTransferPublicInputs[i][5] = publicInputs[23];  // auditorPublicKey[1]
+            
+            // Sender balance (same for all transfers)
+            individualTransferPublicInputs[i][6] = publicInputs[24];  // senderBalanceC1[0]
+            individualTransferPublicInputs[i][7] = publicInputs[25];  // senderBalanceC1[1]
+            individualTransferPublicInputs[i][8] = publicInputs[26];  // senderBalanceC2[0]
+            individualTransferPublicInputs[i][9] = publicInputs[27];  // senderBalanceC2[1]
+            
+            // Sender VTT (same for all transfers)
+            individualTransferPublicInputs[i][10] = publicInputs[28];  // senderVTTC1[0]
+            individualTransferPublicInputs[i][11] = publicInputs[29];  // senderVTTC1[1]
+            individualTransferPublicInputs[i][12] = publicInputs[30];  // senderVTTC2[0]
+            individualTransferPublicInputs[i][13] = publicInputs[31];  // senderVTTC2[1]
+            
+            // Receiver VTT (unique per transfer)
+            individualTransferPublicInputs[i][14] = publicInputs[32 + i*2];  // receiverVTTC1[i][0]
+            individualTransferPublicInputs[i][15] = publicInputs[33 + i*2];  // receiverVTTC1[i][1]
+            individualTransferPublicInputs[i][16] = publicInputs[52 + i*2];  // receiverVTTC2[i][0]
+            individualTransferPublicInputs[i][17] = publicInputs[53 + i*2];  // receiverVTTC2[i][1]
+            
+            // Receiver PCT (unique per transfer)
+            individualTransferPublicInputs[i][18] = publicInputs[72 + i*4];   // receiverPCT[i][0]
+            individualTransferPublicInputs[i][19] = publicInputs[73 + i*4];   // receiverPCT[i][1]
+            individualTransferPublicInputs[i][20] = publicInputs[74 + i*4];   // receiverPCT[i][2]
+            individualTransferPublicInputs[i][21] = publicInputs[75 + i*4];   // receiverPCT[i][3]
+            
+            // Receiver PCT Auth Key (unique per transfer)
+            individualTransferPublicInputs[i][22] = publicInputs[112 + i*2];  // receiverPCTAuthKey[i][0]
+            individualTransferPublicInputs[i][23] = publicInputs[113 + i*2];  // receiverPCTAuthKey[i][1]
+            
+            // Receiver PCT Nonce (unique per transfer)
+            individualTransferPublicInputs[i][24] = publicInputs[132 + i];    // receiverPCTNonce[i]
+            
+            // Auditor PCT (same for all transfers)
+            individualTransferPublicInputs[i][25] = publicInputs[142];  // auditorPCT[0]
+            individualTransferPublicInputs[i][26] = publicInputs[143];  // auditorPCT[1]
+            individualTransferPublicInputs[i][27] = publicInputs[144];  // auditorPCT[2]
+            individualTransferPublicInputs[i][28] = publicInputs[145];  // auditorPCT[3]
+            
+            // Auditor PCT Auth Key (same for all transfers)
+            individualTransferPublicInputs[i][29] = publicInputs[146];  // auditorPCTAuthKey[0]
+            individualTransferPublicInputs[i][30] = publicInputs[147];  // auditorPCTAuthKey[1]
+            
+            // Auditor PCT Nonce (same for all transfers)
+            individualTransferPublicInputs[i][31] = publicInputs[148];  // auditorPCTNonce
+        }
+
+        // validate the public keys
+        {
+            uint256[2] memory fromPublicKey = registrar.getUserPublicKey(from);
+
+            for (uint256 i = 0; i < toAddresses.length; i++) {
+                uint256[2] memory toPublicKey = registrar.getUserPublicKey(toAddresses[i]);
+                if (
+                    fromPublicKey[0] != individualTransferPublicInputs[0] ||
+                    fromPublicKey[1] != individualTransferPublicInputs[1] ||
+                    toPublicKey[0] != individualTransferPublicInputs[2] ||
+                    toPublicKey[1] != individualTransferPublicInputs[3]
+                ) {
+                    revert InvalidProof();
+                }
+            }
+        }
+
+
+        /*
+        // perform the batch of transfers
+        for (uint256 i = 0; i < toAddresses.length; i++) {
+            _transfer(
+                from,
+                toAddresses[i],
+                tokenId, 
+                individualTransferPublicInputs[i],
+                balancePCT[i]
+            );
+        }
+        */
+
+
+        // Need to break up the transfer function into two parts:
+        // 1. verify the sender's balance details using aggregated public inputs
+        // 2. perform the transfers
+            // Here we should iterate through the receivers and perform a private transfer for each after verifying the proofs are well-formed
+        // emit the batch transfer event
+        {
+            uint256[7] memory auditorPCT;
+            for (uint256 i = 0; i < 7; i++) {
+                auditorPCT[i] = publicInputs[25 + i];
+            }
+
+            emit PrivateBatchTransfer(from, toAddresses, auditorPCT, auditor);
+        }
+
+    }
+
 
     /**
      * @notice Deposits an existing ERC20 token into the contract
@@ -832,7 +1021,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
      *      2. Adds the encrypted amount to the user's balance
      *      3. Marks the mint nullifier as used
      *      4. Emits a PrivateMint event
-     */
+     */ 
     function _privateMint(
         address user,
         uint256 mintNullifier,
