@@ -24,3 +24,6 @@ gas-report.txt
 # zkit
 generated-types/
 zkit/pot18_final.ptau
+*.r1cs 
+*.sym
+batchTransfer_2_js/
