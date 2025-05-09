@@ -552,45 +552,45 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             // Sender public key (same for all transfers)
             individualTransferPublicInputs[i][0] = publicInputs[0];  // senderPublicKey[0]
             individualTransferPublicInputs[i][1] = publicInputs[1];  // senderPublicKey[1]
+
+            // Sender balance (same for all transfers)
+            individualTransferPublicInputs[i][2] = publicInputs[24];  // senderBalanceC1[0]
+            individualTransferPublicInputs[i][3] = publicInputs[25];  // senderBalanceC1[1]
+            individualTransferPublicInputs[i][4] = publicInputs[26];  // senderBalanceC2[0]
+            individualTransferPublicInputs[i][5] = publicInputs[27];  // senderBalanceC2[1]
+
+            // Sender VTT (same for all transfers)
+            individualTransferPublicInputs[i][6] = publicInputs[28];  // senderVTTC1[0]
+            individualTransferPublicInputs[i][7] = publicInputs[29];  // senderVTTC1[1]
+            individualTransferPublicInputs[i][8] = publicInputs[30];  // senderVTTC2[0]
+            individualTransferPublicInputs[i][9] = publicInputs[31];  // senderVTTC2[1]
             
             // Receiver public key (unique per transfer)
-            individualTransferPublicInputs[i][2] = publicInputs[2 + i*2];   // receiverPublicKey[i][0]
-            individualTransferPublicInputs[i][3] = publicInputs[3 + i*2];   // receiverPublicKey[i][1]
-            
-            // Auditor public key (same for all transfers)
-            individualTransferPublicInputs[i][4] = publicInputs[22];  // auditorPublicKey[0]
-            individualTransferPublicInputs[i][5] = publicInputs[23];  // auditorPublicKey[1]
-            
-            // Sender balance (same for all transfers)
-            individualTransferPublicInputs[i][6] = publicInputs[24];  // senderBalanceC1[0]
-            individualTransferPublicInputs[i][7] = publicInputs[25];  // senderBalanceC1[1]
-            individualTransferPublicInputs[i][8] = publicInputs[26];  // senderBalanceC2[0]
-            individualTransferPublicInputs[i][9] = publicInputs[27];  // senderBalanceC2[1]
-            
-            // Sender VTT (same for all transfers)
-            individualTransferPublicInputs[i][10] = publicInputs[28];  // senderVTTC1[0]
-            individualTransferPublicInputs[i][11] = publicInputs[29];  // senderVTTC1[1]
-            individualTransferPublicInputs[i][12] = publicInputs[30];  // senderVTTC2[0]
-            individualTransferPublicInputs[i][13] = publicInputs[31];  // senderVTTC2[1]
-            
+            individualTransferPublicInputs[i][10] = publicInputs[2 + i*2];   // receiverPublicKey[i][0]
+            individualTransferPublicInputs[i][11] = publicInputs[3 + i*2];   // receiverPublicKey[i][1]
+
             // Receiver VTT (unique per transfer)
-            individualTransferPublicInputs[i][14] = publicInputs[32 + i*2];  // receiverVTTC1[i][0]
-            individualTransferPublicInputs[i][15] = publicInputs[33 + i*2];  // receiverVTTC1[i][1]
-            individualTransferPublicInputs[i][16] = publicInputs[52 + i*2];  // receiverVTTC2[i][0]
-            individualTransferPublicInputs[i][17] = publicInputs[53 + i*2];  // receiverVTTC2[i][1]
-            
+            individualTransferPublicInputs[i][12] = publicInputs[32 + i*2];  // receiverVTTC1[i][0]
+            individualTransferPublicInputs[i][13] = publicInputs[33 + i*2];  // receiverVTTC1[i][1]
+            individualTransferPublicInputs[i][14] = publicInputs[52 + i*2];  // receiverVTTC2[i][0]
+            individualTransferPublicInputs[i][15] = publicInputs[53 + i*2];  // receiverVTTC2[i][1]
+
             // Receiver PCT (unique per transfer)
-            individualTransferPublicInputs[i][18] = publicInputs[72 + i*4];   // receiverPCT[i][0]
-            individualTransferPublicInputs[i][19] = publicInputs[73 + i*4];   // receiverPCT[i][1]
-            individualTransferPublicInputs[i][20] = publicInputs[74 + i*4];   // receiverPCT[i][2]
-            individualTransferPublicInputs[i][21] = publicInputs[75 + i*4];   // receiverPCT[i][3]
-            
+            individualTransferPublicInputs[i][16] = publicInputs[72 + i*4];   // receiverPCT[i][0]
+            individualTransferPublicInputs[i][17] = publicInputs[73 + i*4];   // receiverPCT[i][1]
+            individualTransferPublicInputs[i][18] = publicInputs[74 + i*4];   // receiverPCT[i][2]
+            individualTransferPublicInputs[i][19] = publicInputs[75 + i*4];   // receiverPCT[i][3]
+
             // Receiver PCT Auth Key (unique per transfer)
-            individualTransferPublicInputs[i][22] = publicInputs[112 + i*2];  // receiverPCTAuthKey[i][0]
-            individualTransferPublicInputs[i][23] = publicInputs[113 + i*2];  // receiverPCTAuthKey[i][1]
-            
+            individualTransferPublicInputs[i][20] = publicInputs[112 + i*2];  // receiverPCTAuthKey[i][0]
+            individualTransferPublicInputs[i][21] = publicInputs[113 + i*2];  // receiverPCTAuthKey[i][1]
+
             // Receiver PCT Nonce (unique per transfer)
-            individualTransferPublicInputs[i][24] = publicInputs[132 + i];    // receiverPCTNonce[i]
+            individualTransferPublicInputs[i][22] = publicInputs[132 + i];    // receiverPCTNonce[i]
+
+            // Auditor public key (same for all transfers)
+            individualTransferPublicInputs[i][23] = publicInputs[22];  // auditorPublicKey[0]
+            individualTransferPublicInputs[i][24] = publicInputs[23];  // auditorPublicKey[1]
             
             // Auditor PCT (same for all transfers)
             individualTransferPublicInputs[i][25] = publicInputs[142];  // auditorPCT[0]
@@ -640,6 +640,15 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
 
         // Need to break up the transfer function into two parts:
         // 1. verify the sender's balance details using aggregated public inputs
+        _batchTransferHandleSenderBalance(
+            from,
+            tokenId,
+            individualTransferPublicInputs[0],
+            balancePCT
+        );
+
+
+
         // 2. perform the transfers
             // Here we should iterate through the receivers and perform a private transfer for each after verifying the proofs are well-formed
         // emit the batch transfer event
@@ -1124,6 +1133,61 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
 
             // Add to the receiver's balance
             _addToUserBalance(to, tokenId, toEncryptedAmount, amountPCT);
+        }
+    }
+
+
+        /**
+     * @notice Performs the internal logic for a private transfer
+     * @param from Address of the sender
+     * @param to Address of the receiver
+     * @param tokenId ID of the token to transfer
+     * @param input Public inputs from the proof
+     * @param balancePCT The balance PCT for the sender after the transfer
+     * @dev This function:
+     *      1. Verifies the sender's balance is valid
+     *      2. Subtracts the encrypted amount from the sender's balance
+     *      3. Adds the encrypted amount to the receiver's balance
+     */
+    function _batchTransferHandleSenderBalance(
+        address from,
+        uint256 tokenId,
+        uint256[32] memory input,
+        uint256[7] calldata balancePCT
+    ) internal {
+        // Process the sender's balance
+        {
+            // Extract the provided balance from the proof
+            EGCT memory providedBalance = EGCT({
+                c1: Point({x: input[2], y: input[3]}),
+                c2: Point({x: input[4], y: input[5]})
+            });
+
+            // Verify the balance is valid
+            uint256 balanceHash = _hashEGCT(providedBalance);
+            (bool isValid, uint256 transactionIndex) = _isBalanceValid(
+                from,
+                tokenId,
+                balanceHash
+            );
+            if (!isValid) {
+                revert InvalidProof();
+            }
+
+            // Extract the encrypted amount to subtract
+            EGCT memory fromEncryptedAmount = EGCT({
+                c1: Point({x: input[6], y: input[7]}),
+                c2: Point({x: input[8], y: input[9]})
+            });
+
+            // Subtract from the sender's balance
+            _subtractFromUserBalance(
+                from,
+                tokenId,
+                fromEncryptedAmount,
+                balancePCT,
+                transactionIndex
+            );
         }
     }
 }
