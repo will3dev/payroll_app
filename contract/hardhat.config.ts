@@ -45,7 +45,7 @@ const config: HardhatUserConfig = {
 		circuitsDir: "circom",
 		compilationSettings: {
 			artifactsDir: "zkit/artifacts",
-			onlyFiles: ["batchTransfer_2.circom"],
+			onlyFiles: [],
 			skipFiles: [],
 			c: false,
 			json: false,

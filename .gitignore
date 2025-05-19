@@ -3,3 +3,5 @@ contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit.groth
 contract/circom/build/batchTransfer_2/batchTransfer_2_final.zkey
 contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit.groth16.zkey
 contract/circom/build/batchTransfer_2/batchTransfer_2_final.zkey
+contract/zkit/artifacts/
+contract/circom/build/
