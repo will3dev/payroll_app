@@ -1261,14 +1261,29 @@ describe("EncryptedERC - Standalone", () => {
 		});
 
 		describe("Batch Transfer", () => {
+			/*
+			// added this because I was running the batch transfer test specifically and running into errors
+			// because the auditor public key was not set
+			beforeEach(async () => {
+				if (!(await encryptedERC.isAuditorKeySet())) {
+					const tx = await encryptedERC.connect(owner).setAuditorPublicKey(owner.address);
+					await tx.wait();
+
+					expect(await encryptedERC.isAuditorKeySet()).to.be.true;
+				}
+			});
+			*/
+
 			it("should successfully perform batch transfer to multiple receivers", async () => {
 				// Setup: Register users and mint tokens to sender
-				const sender = users[0];
+				const sender = users[15];
+				console.log("Sender private key:", sender.formattedPrivateKey);
+				console.log("Is private key < 2^253:", sender.formattedPrivateKey < 2n**253n);
 				const recipients = users.slice(1, 11);
 				const amounts = Array(10).fill(10n);
-
+				
 				let registrationCircuit: RegistrationCircuit;
-				const circuit = await zkit.getCircuit("RegistrationCirctuit");
+				const circuit = await zkit.getCircuit("RegistrationCircuit");
 				registrationCircuit = circuit as unknown as RegistrationCircuit;
 
 				for (const user of [sender, ...recipients]) {
@@ -1294,7 +1309,7 @@ describe("EncryptedERC - Standalone", () => {
 						}
 
 						const proof = await registrationCircuit.generateProof(input);
-						const calldata = await registrationCircuit.generationCalldata(input, proof);
+						const calldata = await registrationCircuit.generateCalldata(proof);
 
 						// 4. register user
 						await expect(registrationCircuit).to.verifyProof(proof);
@@ -1324,8 +1339,14 @@ describe("EncryptedERC - Standalone", () => {
 				const mintAmount = 10000n;
 				let mintValidProof: CalldataMintCircuitGroth16;
 				const toReceiveMintPKey = sender.publicKey;
-
 				
+				// In the batch transfer test, before minting:
+				console.log("Sender public key:", sender.publicKey);
+				console.log("Sender address:", sender.signer.address);
+				console.log("Is sender registered:", await registrar.isUserRegistered(sender.signer.address));
+				console.log("Registered public key:", await registrar.getUserPublicKey(sender.signer.address));
+				console.log("Mint amount: ", mintAmount);
+				console.log("Auditor public key:", auditorPublicKey);
 
 				const balance = await encryptedERC.balanceOfStandalone(
 					sender.signer.address,
@@ -1386,8 +1407,8 @@ describe("EncryptedERC - Standalone", () => {
 					recipients,
 					amounts,
 					[
-						encryptedBalanceAfterMint.eGCT.c1,
-						encryptedBalanceAfterMint.eGCT.c2,
+						...encryptedBalanceAfterMint.eGCT.c1,
+						...encryptedBalanceAfterMint.eGCT.c2,
 					],
 					auditorPublicKey,
 				);

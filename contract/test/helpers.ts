@@ -11,7 +11,7 @@ import type {
   CalldataMintCircuitGroth16,
   CalldataTransferCircuitGroth16,
   CalldataWithdrawCircuitGroth16,
-  CalldataBatchTransferCircuitGroth16,
+  BatchTransferCircuit,
   MintCircuit,
   TransferCircuit,
   WithdrawCircuit,
@@ -108,7 +108,7 @@ export const deployVerifiers = async (
     const transferVerifier = await transferVerifierFactory.deploy();
     await transferVerifier.waitForDeployment();
 
-    const batchTransferFactory = new BatchTransferCircuitGroth16Verifier__factory(signer);
+    const batchTransferFactory = new Groth16Verifier__factory(signer);
     const batchTransferVerifier = await batchTransferFactory.deploy();
     await batchTransferVerifier.waitForDeployment();
 
@@ -481,7 +481,7 @@ export const batchTransfer = async (
   senderEncryptedBalance: bigint[],
   auditorPublicKey: bigint[],
 ): Promise <{
-  proof: CalldataBatchTransferCircuitGroth16, // set the data type that will be returned
+  proof: BatchTransferCircuit, // set the data type that will be returned
   senderBalancePCT: bigint[]
 }> => { 
   const totalAmount = amounts.reduce((a, b) => a + b, 0n);
@@ -546,7 +546,7 @@ export const batchTransfer = async (
 
     SenderVTTC1: encryptedAmountSender[0],
     SenderVTTC2: encryptedAmountSender[1],
-    SenderVTTRandom: encrypatedAmountSenderRandom,
+    //SenderVTTRandom: encrypatedAmountSenderRandom,
 
     ReceiverPublicKey: recipients.map((r) => r.publicKey),
     ReceiverVTTC1: receiverEncryptions.map((r) => r.cipher[0]),
