@@ -11,6 +11,7 @@ import type {
   CalldataMintCircuitGroth16,
   CalldataTransferCircuitGroth16,
   CalldataWithdrawCircuitGroth16,
+  CalldataBatchTransferCircuitGroth16,
   MintCircuit,
   TransferCircuit,
   WithdrawCircuit,
@@ -24,6 +25,7 @@ import {
   RegistrationCircuitGroth16Verifier__factory,
   TransferCircuitGroth16Verifier__factory,
   WithdrawCircuitGroth16Verifier__factory,
+  BatchTransferCircuitGroth16Verifier__factory,
 } from "../typechain-types/factories/contracts/verifiers";
 
 import {
@@ -31,7 +33,11 @@ import {
   RegistrationVerifier__factory,
   TransferVerifier__factory,
   WithdrawVerifier__factory,
+  
 } from "../typechain-types/factories/contracts/prod";
+import {
+  Groth16Verifier__factory
+} from "../typechain-types/factories/contracts/prod/BatchTransferVerifier2.sol"
 
 import type { User } from "./user";
 
@@ -69,11 +75,16 @@ export const deployVerifiers = async (
     const transferVerifier = await transferVerifierFactory.deploy();
     await transferVerifier.waitForDeployment();
 
+    const batchTransferVerifierFactory = new Groth16Verifier__factory(signer);
+    const batchTransferVerifier = await batchTransferVerifierFactory.deploy();
+    await batchTransferVerifier.waitForDeployment();
+
     return {
       registrationVerifier: registrationVerifier.target.toString(),
       mintVerifier: mintVerifier.target.toString(),
       withdrawVerifier: withdrawVerifier.target.toString(),
       transferVerifier: transferVerifier.target.toString(),
+      batchTransferVerifier: batchTransferVerifier.target.toString(),
     };
   } if (!isProd) {
     const registrationVerifierFactory =
@@ -97,11 +108,16 @@ export const deployVerifiers = async (
     const transferVerifier = await transferVerifierFactory.deploy();
     await transferVerifier.waitForDeployment();
 
+    const batchTransferFactory = new BatchTransferCircuitGroth16Verifier__factory(signer);
+    const batchTransferVerifier = await batchTransferFactory.deploy();
+    await batchTransferVerifier.waitForDeployment();
+
     return {
       registrationVerifier: registrationVerifier.target.toString(),
       mintVerifier: mintVerifier.target.toString(),
       withdrawVerifier: withdrawVerifier.target.toString(),
       transferVerifier: transferVerifier.target.toString(),
+      batchTransferVerifier: batchTransferVerifier.target.toString(),
     };
   }
   throw new Error("Invalid deployment type");
@@ -445,3 +461,118 @@ export const getDecryptedBalance = async (
 
   return totalBalance;
 };
+
+
+/**
+ * Function for generating the proof and calldata for a batch transfer
+ * @param users Users to be transferred to
+ * @param amounts Amounts to be transferred
+ * @param sender Sender
+ * @param senderBalance Sender balance
+ * @param auditorPublicKey Auditor's public key
+ * @returns proof - Proof and public inputs for the generated proof
+ * @returns senderBalancePCT - Sender's balance after the transfer encrypted with Poseidon encryption
+ */
+export const batchTransfer = async (
+  sender: User,
+  senderBalance: bigint,
+  recipients: User[],
+  amounts:bigint[],
+  senderEncryptedBalance: bigint[],
+  auditorPublicKey: bigint[],
+): Promise <{
+  proof: CalldataBatchTransferCircuitGroth16, // set the data type that will be returned
+  senderBalancePCT: bigint[]
+}> => { 
+  const totalAmount = amounts.reduce((a, b) => a + b, 0n);
+  const senderNewBalance = senderBalance - totalAmount;
+
+  // 1. Encrypt transfer amount for sender (same as privateTransfer)
+  const { cipher: encryptedAmountSender, random: encrypatedAmountSenderRandom } =
+    encryptMessage(sender.publicKey, totalAmount);
+
+  // 2. generate encrypted amounts for each receiver
+  const receiverEncryptions = await Promise.all(
+    recipients.map(async (receiver, i) => {
+      const { cipher, random } = encryptMessage(receiver.publicKey, amounts[i]);
+      return { cipher, random };
+    })
+  );
+
+  // 3. generate the receiver PCTs
+  const receiverPCTs = await Promise.all(
+    recipients.map(async (receiver, i) => {
+      const {
+        ciphertext: receiverCipherText,
+        nonce: receiverNonce,
+        authKey: receiverAuthKey,
+        encRandom: receiverEncRandom,
+      } = processPoseidonEncryption([amounts[i]], receiver.publicKey);
+
+      return {
+        pct: receiverCipherText,
+        nonce: receiverNonce,
+        random: receiverEncRandom,
+        authKey: receiverAuthKey      
+      };
+    })
+  );
+
+  // 4. generate the auditor PCT 
+  const {
+    ciphertext: auditorPCT,
+    nonce: auditorNonce,
+    encRandom: auditorEncRandom,
+    authKey: auditorAuthKey
+  } = processPoseidonEncryption([totalAmount], auditorPublicKey);
+
+  // 5. Generate the sender PCT
+  const {
+    ciphertext: senderPCT,
+    nonce: senderNonce,
+    encRandom: senderEncRandom,
+    authKey: senderAuthKey
+  } = processPoseidonEncryption([senderNewBalance], sender.publicKey);
+
+  // 6. Prepare the circuit inputs
+  const input = {
+    ValueToTransfer: totalAmount,
+
+    SenderPrivateKey: sender.privateKey,
+    SenderPublicKey: sender.publicKey,
+    SenderBalance: senderBalance,
+    SenderBalanceC1: senderEncryptedBalance.slice(0, 2),
+    SenderBalanceC2: senderEncryptedBalance.slice(2, 4),
+
+    SenderVTTC1: encryptedAmountSender[0],
+    SenderVTTC2: encryptedAmountSender[1],
+    SenderVTTRandom: encrypatedAmountSenderRandom,
+
+    ReceiverPublicKey: recipients.map((r) => r.publicKey),
+    ReceiverVTTC1: receiverEncryptions.map((r) => r.cipher[0]),
+    ReceiverVTTC2: receiverEncryptions.map((r) => r.cipher[1]),
+    ReceiverVTTRandom: receiverEncryptions.map((r) => r.random),
+
+    ReceiverPCT: receiverPCTs.map((r) => r.pct),
+    ReceiverPCTAuthKey: receiverPCTs.map((r) => r.authKey),
+    ReceiverPCTNonce: receiverPCTs.map((r) => r.nonce),
+    ReceiverPCTRandom: receiverPCTs.map((r) => r.random),
+
+    AuditorPublicKey: auditorPublicKey,
+    AuditorPCT: auditorPCT,
+    AuditorPCTAuthKey: auditorAuthKey,
+    AuditorPCTNonce: auditorNonce,
+    AuditorPCTRandom: auditorEncRandom,
+
+    ReceiverAmount: amounts
+  };
+
+  // 7. Generate the proof and calldata
+  const circuit = await zkit.getCircuit("BatchTransferCircuit");
+  const batchTransferCircuit = circuit as unknown as BatchTransferCircuit;
+
+  const proof = await batchTransferCircuit.generateProof(input);
+  const calldata = await batchTransferCircuit.generateCalldata(proof);
+
+  return { proof, senderBalancePCT: [...senderPCT, ...senderAuthKey, senderNonce] };
+}

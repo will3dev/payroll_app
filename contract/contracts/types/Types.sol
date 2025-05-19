@@ -74,7 +74,7 @@ struct TransferProof {
 
 struct BatchTransferProof {
     ProofPoints proofPoints;
-    uint256[150] publicSignals; // Total number of public signals from the circuit 
+    uint256[149] publicSignals; // Total number of public signals from the circuit 
 }
 
 struct WithdrawProof {

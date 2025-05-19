@@ -24,7 +24,7 @@ import {IRegistrar} from "./interfaces/IRegistrar.sol";
 import {IMintVerifier} from "./interfaces/verifiers/IMintVerifier.sol";
 import {IWithdrawVerifier} from "./interfaces/verifiers/IWithdrawVerifier.sol";
 import {ITransferVerifier} from "./interfaces/verifiers/ITransferVerifier.sol";
-import {IBatchTransferVerifier} from "./interfaces/verifiers/IBatchTransferVerifier.sol";
+import {IBatchTransferVerifier2} from "./interfaces/verifiers/IBatchTransferVerifier2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -66,7 +66,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     IMintVerifier public mintVerifier;
     IWithdrawVerifier public withdrawVerifier;
     ITransferVerifier public transferVerifier;
-    IBatchTransferVerifier public batchTransferVerifier;
+    IBatchTransferVerifier2 public batchTransferVerifier;
 
     /// @notice Token metadata
     string public name;
@@ -197,7 +197,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         mintVerifier = IMintVerifier(params.mintVerifier);
         withdrawVerifier = IWithdrawVerifier(params.withdrawVerifier);
         transferVerifier = ITransferVerifier(params.transferVerifier);
-        batchTransferVerifier = IBatchTransferVerifier(params.batchTransferVerifier);
+        batchTransferVerifier = IBatchTransferVerifier2(params.batchTransferVerifier);
 
         // if contract is not a converter, then set the name and symbol
         if (!params.isConverter) {
@@ -508,21 +508,28 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         address[] calldata toAddresses,
         uint256 tokenId,
         BatchTransferProof calldata proof,
-        uint256[10][7] calldata balancePCT
-    ) external onlyIfAuditorSet {
-        uint256[150] memory publicInputs = proof.publicSignals;
+        uint256[7] calldata balancePCT
+    ) public onlyIfAuditorSet {
+        uint256[149] memory publicInputs = proof.publicSignals;
         address from = msg.sender; // from address is assumed to be msg sender
 
-        // validate user registration
+        // validate sender registration
         {
             if (
-                !registrar.isUserRegistered(from) ||
-                !registrar.isUserRegistered(to)
+                !registrar.isUserRegistered(from)
             ) {
                 revert UserNotRegistered();
             }
         }
 
+        // validate receiver registrations
+        {
+            for (uint256 i = 0; i < toAddresses.length; i++) {
+                if (!registrar.isUserRegistered(toAddresses[i])) {
+                    revert UserNotRegistered();
+                }
+            }
+        }
         // validate auditor public key
         {
             if (
@@ -534,7 +541,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         }
 
         // verify the zero-knowledge proof 
-        bool isVerified = transferVerifier.verifyProof(
+        bool isVerified = batchTransferVerifier.verifyProof(
             proof.proofPoints.a,
             proof.proofPoints.b,
             proof.proofPoints.c,
@@ -546,7 +553,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
 
 
         // construct an array of public inputs required for each transfer
-        uint256[10][32] memory individualTransferPublicInputs;
+        uint256[32][] memory individualTransferPublicInputs = new uint256[32][](toAddresses.length);
 
         for (uint256 i = 0; i < toAddresses.length; i++) {
             // Sender public key (same for all transfers)
@@ -613,30 +620,15 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             for (uint256 i = 0; i < toAddresses.length; i++) {
                 uint256[2] memory toPublicKey = registrar.getUserPublicKey(toAddresses[i]);
                 if (
-                    fromPublicKey[0] != individualTransferPublicInputs[0] ||
-                    fromPublicKey[1] != individualTransferPublicInputs[1] ||
-                    toPublicKey[0] != individualTransferPublicInputs[2] ||
-                    toPublicKey[1] != individualTransferPublicInputs[3]
+                    fromPublicKey[0] != individualTransferPublicInputs[i][0] ||
+                    fromPublicKey[1] != individualTransferPublicInputs[i][1] ||
+                    toPublicKey[0] != individualTransferPublicInputs[i][10] ||
+                    toPublicKey[1] != individualTransferPublicInputs[i][11]
                 ) {
                     revert InvalidProof();
                 }
             }
         }
-
-
-        /*
-        // perform the batch of transfers
-        for (uint256 i = 0; i < toAddresses.length; i++) {
-            _transfer(
-                from,
-                toAddresses[i],
-                tokenId, 
-                individualTransferPublicInputs[i],
-                balancePCT[i]
-            );
-        }
-        */
-
 
         // Need to break up the transfer function into two parts:
         // 1. verify the sender's balance details using aggregated public inputs
@@ -651,6 +643,12 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
 
         // 2. perform the transfers
             // Here we should iterate through the receivers and perform a private transfer for each after verifying the proofs are well-formed
+        _batchTransferHandleReceiverBalances(
+            toAddresses,
+            tokenId,
+            individualTransferPublicInputs
+        );
+
         // emit the batch transfer event
         {
             uint256[7] memory auditorPCT;
@@ -1140,7 +1138,6 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         /**
      * @notice Performs the internal logic for a private transfer
      * @param from Address of the sender
-     * @param to Address of the receiver
      * @param tokenId ID of the token to transfer
      * @param input Public inputs from the proof
      * @param balancePCT The balance PCT for the sender after the transfer
@@ -1153,7 +1150,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         address from,
         uint256 tokenId,
         uint256[32] memory input,
-        uint256[7] calldata balancePCT
+        uint256[7] memory balancePCT
     ) internal {
         // Process the sender's balance
         {
@@ -1190,4 +1187,32 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             );
         }
     }
+
+    function _batchTransferHandleReceiverBalances(
+        address[] memory toAddresses,
+        uint256 tokenId,
+        uint256[32][] memory inputs
+    ) internal {
+        // iterates over the toAddresses and adds the encrypted amounts to the receiver's balances
+        for (uint256 i = 0; i < toAddresses.length; i++) {
+            
+            // Extract the amount that needs to be sent to the receiver
+            EGCT memory toEncryptedAmount = EGCT({
+                c1: Point({x: inputs[i][12], y: inputs[i][13]}),
+                c2: Point({x: inputs[i][14], y: inputs[i][15]})
+            });
+
+            // Extract the amount poseidon ciphertext
+            uint256[7] memory amountPCT;
+            for (uint256 j = 0; j < 7; j++) {
+                amountPCT[j] = inputs[i][16 + j];
+            }
+
+            // Add to the receiver's balance
+            _addToUserBalance(toAddresses[i], tokenId, toEncryptedAmount, amountPCT);
+        }
+    }
+
+
+    
 }

@@ -1,0 +1,209 @@
+{
+  "_format": "hh-zkit-artifacts-1",
+  "circuitTemplateName": "BatchTransferCircuit",
+  "circuitFileName": "batchTransfer_2",
+  "circuitSourceName": "circom/batchTransfer_2.circom",
+  "baseCircuitInfo": {
+    "constraintsNumber": 118939,
+    "signals": [
+      {
+        "name": "ValueToTransfer",
+        "dimension": [],
+        "type": "Input",
+        "visibility": "Private"
+      },
+      {
+        "name": "SenderPrivateKey",
+        "dimension": [],
+        "type": "Input",
+        "visibility": "Private"
+      },
+      {
+        "name": "SenderPublicKey",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "SenderBalance",
+        "dimension": [],
+        "type": "Input",
+        "visibility": "Private"
+      },
+      {
+        "name": "SenderBalanceC1",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "SenderBalanceC2",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "SenderVTTC1",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "SenderVTTC2",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverPublicKey",
+        "dimension": [
+          10,
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverVTTC1",
+        "dimension": [
+          10,
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverVTTC2",
+        "dimension": [
+          10,
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverVTTRandom",
+        "dimension": [
+          10
+        ],
+        "type": "Input",
+        "visibility": "Private"
+      },
+      {
+        "name": "ReceiverPCT",
+        "dimension": [
+          10,
+          4
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverPCTAuthKey",
+        "dimension": [
+          10,
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverPCTNonce",
+        "dimension": [
+          10
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "ReceiverPCTRandom",
+        "dimension": [
+          10
+        ],
+        "type": "Input",
+        "visibility": "Private"
+      },
+      {
+        "name": "AuditorPublicKey",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "AuditorPCT",
+        "dimension": [
+          4
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "AuditorPCTAuthKey",
+        "dimension": [
+          2
+        ],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "AuditorPCTNonce",
+        "dimension": [],
+        "type": "Input",
+        "visibility": "Public"
+      },
+      {
+        "name": "AuditorPCTRandom",
+        "dimension": [],
+        "type": "Input",
+        "visibility": "Private"
+      },
+      {
+        "name": "ReceiverAmount",
+        "dimension": [
+          10
+        ],
+        "type": "Input",
+        "visibility": "Private"
+      }
+    ],
+    "parameters": {
+      "n": {
+        "__bigintval__": "10"
+      }
+    }
+  },
+  "compilerOutputFiles": {
+    "r1cs": {
+      "fileSourcePath": "/Users/will.waltrip/Documents/Projects/payroll_app/contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit.r1cs",
+      "fileHash": "3ee78a24ab82b9a7b0651133d9cff63abfe2f218"
+    },
+    "wasm": {
+      "fileSourcePath": "/Users/will.waltrip/Documents/Projects/payroll_app/contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit_js/BatchTransferCircuit.wasm",
+      "fileHash": "37df7d514808678ffccb0aebda5320f5efac9d4b"
+    },
+    "sym": {
+      "fileSourcePath": "/Users/will.waltrip/Documents/Projects/payroll_app/contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit.sym",
+      "fileHash": "775ff0fcfa971fa156f79b97ea930a96fc2aebb0"
+    },
+    "groth16.zkey": {
+      "fileSourcePath": "/Users/will.waltrip/Documents/Projects/payroll_app/contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit.groth16.zkey",
+      "fileHash": "759bdf393e4cecf3d2c9fd62f99830f399a02f97"
+    },
+    "groth16.vkey": {
+      "fileSourcePath": "/Users/will.waltrip/Documents/Projects/payroll_app/contract/zkit/artifacts/circom/batchTransfer_2.circom/BatchTransferCircuit.groth16.vkey.json",
+      "fileHash": "66d9106381d17c06aee622fa1f9a2acedbf8b157"
+    }
+  }
+}

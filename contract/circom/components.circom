@@ -225,7 +225,7 @@ template ElGamalSub() {
     negC2[0] <== 0 - bC2[0];
     negC2[1] <== bC2[1];
 
-    component addC1 = BabyAdd()
+    component addC1 = BabyAdd();
     addC1.x1 <== aC1[0];
     addC1.y1 <== aC1[1];
     addC1.x2 <== negC1[0];
