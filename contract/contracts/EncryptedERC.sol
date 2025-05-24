@@ -17,7 +17,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {CreateEncryptedERCParams, Point, EGCT, EncryptedBalance, AmountPCT, MintProof, TransferProof, BatchTransferProof, WithdrawProof} from "./types/Types.sol";
 
 // errors
-import {UserNotRegistered, InvalidProof, TransferFailed, UnknownToken, InvalidChainId, InvalidNullifier, ZeroAddress} from "./errors/Errors.sol";
+import {UserNotRegistered, InvalidProof, TransferFailed, UnknownToken, InvalidChainId, InvalidNullifier, ZeroAddress, InvalidAuditorPublicKey, InvalidProofVerification} from "./errors/Errors.sol";
 
 // interfaces
 import {IRegistrar} from "./interfaces/IRegistrar.sol";
@@ -533,10 +533,10 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         // validate auditor public key
         {
             if (
-                auditorPublicKey.x != publicInputs[22] ||
-                auditorPublicKey.y != publicInputs[23]
+                auditorPublicKey.x != publicInputs[140] ||
+                auditorPublicKey.y != publicInputs[141]
             ) {
-                revert InvalidProof();
+                revert InvalidAuditorPublicKey();
             }
         }
 
@@ -548,7 +548,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             proof.publicSignals
         );
         if (!isVerified) {
-            revert InvalidProof();
+            revert InvalidProofVerification();
         }
 
 
@@ -561,43 +561,43 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             individualTransferPublicInputs[i][1] = publicInputs[1];  // senderPublicKey[1]
 
             // Sender balance (same for all transfers)
-            individualTransferPublicInputs[i][2] = publicInputs[24];  // senderBalanceC1[0]
-            individualTransferPublicInputs[i][3] = publicInputs[25];  // senderBalanceC1[1]
-            individualTransferPublicInputs[i][4] = publicInputs[26];  // senderBalanceC2[0]
-            individualTransferPublicInputs[i][5] = publicInputs[27];  // senderBalanceC2[1]
+            individualTransferPublicInputs[i][2] = publicInputs[2];  // senderBalanceC1[0]
+            individualTransferPublicInputs[i][3] = publicInputs[3];  // senderBalanceC1[1]
+            individualTransferPublicInputs[i][4] = publicInputs[4];  // senderBalanceC2[0]
+            individualTransferPublicInputs[i][5] = publicInputs[5];  // senderBalanceC2[1]
 
             // Sender VTT (same for all transfers)
-            individualTransferPublicInputs[i][6] = publicInputs[28];  // senderVTTC1[0]
-            individualTransferPublicInputs[i][7] = publicInputs[29];  // senderVTTC1[1]
-            individualTransferPublicInputs[i][8] = publicInputs[30];  // senderVTTC2[0]
-            individualTransferPublicInputs[i][9] = publicInputs[31];  // senderVTTC2[1]
+            individualTransferPublicInputs[i][6] = publicInputs[6];  // senderVTTC1[0]
+            individualTransferPublicInputs[i][7] = publicInputs[7];  // senderVTTC1[1]
+            individualTransferPublicInputs[i][8] = publicInputs[8];  // senderVTTC2[0]
+            individualTransferPublicInputs[i][9] = publicInputs[9];  // senderVTTC2[1]
             
             // Receiver public key (unique per transfer)
-            individualTransferPublicInputs[i][10] = publicInputs[2 + i*2];   // receiverPublicKey[i][0]
-            individualTransferPublicInputs[i][11] = publicInputs[3 + i*2];   // receiverPublicKey[i][1]
+            individualTransferPublicInputs[i][10] = publicInputs[10 + i*2];   // receiverPublicKey[i][0]
+            individualTransferPublicInputs[i][11] = publicInputs[11 + i*2];   // receiverPublicKey[i][1]
 
             // Receiver VTT (unique per transfer)
-            individualTransferPublicInputs[i][12] = publicInputs[32 + i*2];  // receiverVTTC1[i][0]
-            individualTransferPublicInputs[i][13] = publicInputs[33 + i*2];  // receiverVTTC1[i][1]
-            individualTransferPublicInputs[i][14] = publicInputs[52 + i*2];  // receiverVTTC2[i][0]
-            individualTransferPublicInputs[i][15] = publicInputs[53 + i*2];  // receiverVTTC2[i][1]
+            individualTransferPublicInputs[i][12] = publicInputs[30 + i*2];  // receiverVTTC1[i][0]
+            individualTransferPublicInputs[i][13] = publicInputs[31 + i*2];  // receiverVTTC1[i][1]
+            individualTransferPublicInputs[i][14] = publicInputs[50 + i*2];  // receiverVTTC2[i][0]
+            individualTransferPublicInputs[i][15] = publicInputs[51 + i*2];  // receiverVTTC2[i][1]
 
             // Receiver PCT (unique per transfer)
-            individualTransferPublicInputs[i][16] = publicInputs[72 + i*4];   // receiverPCT[i][0]
-            individualTransferPublicInputs[i][17] = publicInputs[73 + i*4];   // receiverPCT[i][1]
-            individualTransferPublicInputs[i][18] = publicInputs[74 + i*4];   // receiverPCT[i][2]
-            individualTransferPublicInputs[i][19] = publicInputs[75 + i*4];   // receiverPCT[i][3]
+            individualTransferPublicInputs[i][16] = publicInputs[70 + i*4];   // receiverPCT[i][0]
+            individualTransferPublicInputs[i][17] = publicInputs[71 + i*4];   // receiverPCT[i][1]
+            individualTransferPublicInputs[i][18] = publicInputs[72 + i*4];   // receiverPCT[i][2]
+            individualTransferPublicInputs[i][19] = publicInputs[73 + i*4];   // receiverPCT[i][3]
 
             // Receiver PCT Auth Key (unique per transfer)
-            individualTransferPublicInputs[i][20] = publicInputs[112 + i*2];  // receiverPCTAuthKey[i][0]
-            individualTransferPublicInputs[i][21] = publicInputs[113 + i*2];  // receiverPCTAuthKey[i][1]
+            individualTransferPublicInputs[i][20] = publicInputs[110 + i*2];  // receiverPCTAuthKey[i][0]
+            individualTransferPublicInputs[i][21] = publicInputs[111 + i*2];  // receiverPCTAuthKey[i][1]
 
             // Receiver PCT Nonce (unique per transfer)
-            individualTransferPublicInputs[i][22] = publicInputs[132 + i];    // receiverPCTNonce[i]
+            individualTransferPublicInputs[i][22] = publicInputs[130 + i];    // receiverPCTNonce[i]
 
             // Auditor public key (same for all transfers)
-            individualTransferPublicInputs[i][23] = publicInputs[22];  // auditorPublicKey[0]
-            individualTransferPublicInputs[i][24] = publicInputs[23];  // auditorPublicKey[1]
+            individualTransferPublicInputs[i][23] = publicInputs[140];  // auditorPublicKey[0]
+            individualTransferPublicInputs[i][24] = publicInputs[141];  // auditorPublicKey[1]
             
             // Auditor PCT (same for all transfers)
             individualTransferPublicInputs[i][25] = publicInputs[142];  // auditorPCT[0]

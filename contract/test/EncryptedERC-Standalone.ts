@@ -1413,18 +1413,32 @@ describe("EncryptedERC - Standalone", () => {
 					auditorPublicKey,
 				);
 
+				console.log("Batch Transfer Proof Details:");
+				console.log("Proof Points A:", BigInt(proof.proofPoints.a[0]), BigInt(proof.proofPoints.a[1]));
+				console.log("Proof Points B:", BigInt(proof.proofPoints.b[0][0]), BigInt(proof.proofPoints.b[0][1]), BigInt(proof.proofPoints.b[1][0]), BigInt(proof.proofPoints.b[1][1]));
+				console.log("Proof Points C:", BigInt(proof.proofPoints.c[0]), BigInt(proof.proofPoints.c[1]));
+				console.log("Public Signals Length:", proof.publicSignals.length);
+				console.log("Auditor Public Key in Proof:", [BigInt(proof.publicSignals[140]), BigInt(proof.publicSignals[141])]);
+				console.log("Expected Auditor Public Key:", auditorPublicKey);
+				console.log("Sender Public Key in Proof:", [BigInt(proof.publicSignals[0]), BigInt(proof.publicSignals[1])]);
+				console.log("Expected Sender Public Key:", sender.publicKey);
+
 				// 7. Execute batch transfer 
-				expect(
-					await encryptedERC
+				try {
+					const tx = await encryptedERC
 						.connect(sender.signer)
 						.batchTransfer(
 							recipients.map(r => r.signer.address), 
 							0n, 
 							proof, 
-							senderBalancePCT,
-							auditorPublicKey
-						),
-				).to.be.not.reverted;
+							senderBalancePCT
+						);
+					await tx.wait();
+					console.log("Batch transfer transaction successful");
+				} catch (error) {
+					console.error("Batch transfer failed with error:", error);
+					throw error;
+				}
 				
 			
 				// 8. Get the receiver balances after the transfer

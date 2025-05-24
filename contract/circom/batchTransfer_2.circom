@@ -12,7 +12,7 @@ Need to perform elgamal subtraction for the sender's balance to determine
 
 template BatchTransferCircuit(n) {
     // Input signals (private)
-    signal input ValueToTransfer;
+    signal input ValueToTransfer; //
 
     signal input SenderPrivateKey;
     signal input SenderPublicKey[2];
@@ -127,7 +127,7 @@ template BatchTransferCircuit(n) {
         checkReceiverPCT[i].authKey[1] <== ReceiverPCTAuthKey[i][1];
         checkReceiverPCT[i].nonce <== ReceiverPCTNonce[i];
         checkReceiverPCT[i].random <== ReceiverPCTRandom[i];
-        checkReceiverPCT[i].value <== ValueToTransfer;
+        checkReceiverPCT[i].value <== ReceiverAmount[i];
     }
 
     // Verify auditor's encrypted summary includes the transfer amount and is encrypted with the auditor's public key

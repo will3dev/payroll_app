@@ -11,10 +11,11 @@ import type {
   CalldataMintCircuitGroth16,
   CalldataTransferCircuitGroth16,
   CalldataWithdrawCircuitGroth16,
-  BatchTransferCircuit,
+  CalldataBatchTransferCircuitGroth16,
   MintCircuit,
   TransferCircuit,
   WithdrawCircuit,
+  BatchTransferCircuit,
 } from "../generated-types/zkit";
 import { processPoseidonDecryption, processPoseidonEncryption } from "../src";
 import { decryptPoint, encryptMessage } from "../src/jub/jub";
@@ -481,14 +482,15 @@ export const batchTransfer = async (
   senderEncryptedBalance: bigint[],
   auditorPublicKey: bigint[],
 ): Promise <{
-  proof: BatchTransferCircuit, // set the data type that will be returned
+  proof: CalldataBatchTransferCircuitGroth16, // set the data type that will be returned
   senderBalancePCT: bigint[]
 }> => { 
   const totalAmount = amounts.reduce((a, b) => a + b, 0n);
+  console.log("Total Amount:", totalAmount);
   const senderNewBalance = senderBalance - totalAmount;
 
   // 1. Encrypt transfer amount for sender (same as privateTransfer)
-  const { cipher: encryptedAmountSender, random: encrypatedAmountSenderRandom } =
+  const { cipher: encryptedAmountSender, random: encryptedAmountSenderRandom } =
     encryptMessage(sender.publicKey, totalAmount);
 
   // 2. generate encrypted amounts for each receiver
@@ -538,7 +540,7 @@ export const batchTransfer = async (
   const input = {
     ValueToTransfer: totalAmount,
 
-    SenderPrivateKey: sender.privateKey,
+    SenderPrivateKey: sender.formattedPrivateKey,
     SenderPublicKey: sender.publicKey,
     SenderBalance: senderBalance,
     SenderBalanceC1: senderEncryptedBalance.slice(0, 2),
@@ -574,5 +576,9 @@ export const batchTransfer = async (
   const proof = await batchTransferCircuit.generateProof(input);
   const calldata = await batchTransferCircuit.generateCalldata(proof);
 
-  return { proof, senderBalancePCT: [...senderPCT, ...senderAuthKey, senderNonce] };
+  console.log("Public Signals:", proof.publicSignals);
+  console.log("Auditor Public Key in Proof:", [BigInt(calldata.publicSignals[140]), BigInt(calldata.publicSignals[141])]);
+  console.log("Expected Auditor Public Key:", auditorPublicKey);
+
+  return { proof:calldata, senderBalancePCT: [...senderPCT, ...senderAuthKey, senderNonce] };
 }

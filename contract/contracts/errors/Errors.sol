@@ -10,6 +10,8 @@ error UserNotRegistered();
 error UnauthorizedAccess();
 error AuditorKeyNotSet();
 error InvalidProof();
+error InvalidProofVerification();
+error InvalidAuditorPublicKey();
 error InvalidOperation();
 error TransferFailed();
 error UnknownToken();
