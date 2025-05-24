@@ -511,6 +511,14 @@ export const batchTransfer = async (
         encRandom: receiverEncRandom,
       } = processPoseidonEncryption([amounts[i]], receiver.publicKey);
 
+      console.log(`\nReceiver ${i} PCT Construction Details:`);
+      console.log("Input amount:", amounts[i].toString());
+      console.log("Public key:", receiver.publicKey.map(k => k.toString()));
+      console.log("Ciphertext (raw):", receiverCipherText.map(c => c.toString()));
+      console.log("Auth key (raw):", receiverAuthKey.map(k => k.toString()));
+      console.log("Nonce (raw):", receiverNonce.toString());
+      console.log("Random (raw):", receiverEncRandom.toString());
+
       return {
         pct: receiverCipherText,
         nonce: receiverNonce,
@@ -528,6 +536,14 @@ export const batchTransfer = async (
     authKey: auditorAuthKey
   } = processPoseidonEncryption([totalAmount], auditorPublicKey);
 
+  console.log("\nAuditor PCT Construction Details:");
+  console.log("Input total amount:", totalAmount.toString());
+  console.log("Public key:", auditorPublicKey.map(k => k.toString()));
+  console.log("Ciphertext (raw):", auditorPCT.map(c => c.toString()));
+  console.log("Auth key (raw):", auditorAuthKey.map(k => k.toString()));
+  console.log("Nonce (raw):", auditorNonce.toString());
+  console.log("Random (raw):", auditorEncRandom.toString());
+
   // 5. Generate the sender PCT
   const {
     ciphertext: senderPCT,
@@ -536,13 +552,21 @@ export const batchTransfer = async (
     authKey: senderAuthKey
   } = processPoseidonEncryption([senderNewBalance], sender.publicKey);
 
+  console.log("\nSender PCT Construction Details:");
+  console.log("Input new balance:", senderNewBalance.toString());
+  console.log("Public key:", sender.publicKey.map(k => k.toString()));
+  console.log("Ciphertext (raw):", senderPCT.map(c => c.toString()));
+  console.log("Auth key (raw):", senderAuthKey.map(k => k.toString()));
+  console.log("Nonce (raw):", senderNonce.toString());
+  console.log("Random (raw):", senderEncRandom.toString());
+  
   // 6. Prepare the circuit inputs
   const input = {
     ValueToTransfer: totalAmount,
 
     SenderPrivateKey: sender.formattedPrivateKey,
     SenderPublicKey: sender.publicKey,
-    SenderBalance: senderBalance,
+    SenderBalance: senderBalance, // unencrypted balance
     SenderBalanceC1: senderEncryptedBalance.slice(0, 2),
     SenderBalanceC2: senderEncryptedBalance.slice(2, 4),
 
@@ -575,10 +599,6 @@ export const batchTransfer = async (
 
   const proof = await batchTransferCircuit.generateProof(input);
   const calldata = await batchTransferCircuit.generateCalldata(proof);
-
-  console.log("Public Signals:", proof.publicSignals);
-  console.log("Auditor Public Key in Proof:", [BigInt(calldata.publicSignals[140]), BigInt(calldata.publicSignals[141])]);
-  console.log("Expected Auditor Public Key:", auditorPublicKey);
 
   return { proof:calldata, senderBalancePCT: [...senderPCT, ...senderAuthKey, senderNonce] };
 }

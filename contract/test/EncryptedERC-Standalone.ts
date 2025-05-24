@@ -1359,6 +1359,8 @@ describe("EncryptedERC - Standalone", () => {
 					balance.balancePCT,
 					balance.eGCT,
 				);
+
+				console.log("BEFORE Balance PCT:", balance.balancePCT.toString());
 				
 				const mintCalldata = await privateMint(
 					mintAmount,
@@ -1377,6 +1379,13 @@ describe("EncryptedERC - Standalone", () => {
 					sender.signer.address,
 				);
 
+				// Log the encrypted balance components
+				console.log("\nEncrypted Balance Components:");
+				console.log("Amount PCTs:", encryptedBalanceAfterMint.amountPCTs.map(pct => pct.toString()));
+				console.log("Balance PCT:", encryptedBalanceAfterMint.balancePCT.toString());
+				console.log("EGCT c1:", encryptedBalanceAfterMint.eGCT.c1.map(c => c.toString()));
+				console.log("EGCT c2:", encryptedBalanceAfterMint.eGCT.c2.map(c => c.toString()));
+
 				const balanceAfterMint = await getDecryptedBalance(
 					sender.privateKey,
 					encryptedBalanceAfterMint.amountPCTs,
@@ -1384,7 +1393,19 @@ describe("EncryptedERC - Standalone", () => {
 					encryptedBalanceAfterMint.eGCT,
 				);
 
-				expect(balanceAfterMint).to.equal(balanceBeforeMint + mintAmount); // check if the balance is updated correctly
+				// Verify the balance calculation
+				console.log("\nBalance Verification:");
+				console.log("Expected balance after mint:", balanceBeforeMint + mintAmount);
+				console.log("Actual balance after mint:", balanceAfterMint);
+				
+				// Verify each amount PCT
+				console.log("\nAmount PCTs Verification:");
+				for (const [pct] of encryptedBalanceAfterMint.amountPCTs) {
+					const decrypted = await decryptPCT(sender.privateKey, pct);
+					console.log("PCT:", pct.toString(), "decrypted to:", decrypted[0].toString());
+				}
+
+				expect(balanceAfterMint).to.equal(balanceBeforeMint + mintAmount);
 
 				// 6. Get the receiver balances before the transfer
 				const receiverBalancesBeforeTransfer = await Promise.all(
@@ -1412,16 +1433,6 @@ describe("EncryptedERC - Standalone", () => {
 					],
 					auditorPublicKey,
 				);
-
-				console.log("Batch Transfer Proof Details:");
-				console.log("Proof Points A:", BigInt(proof.proofPoints.a[0]), BigInt(proof.proofPoints.a[1]));
-				console.log("Proof Points B:", BigInt(proof.proofPoints.b[0][0]), BigInt(proof.proofPoints.b[0][1]), BigInt(proof.proofPoints.b[1][0]), BigInt(proof.proofPoints.b[1][1]));
-				console.log("Proof Points C:", BigInt(proof.proofPoints.c[0]), BigInt(proof.proofPoints.c[1]));
-				console.log("Public Signals Length:", proof.publicSignals.length);
-				console.log("Auditor Public Key in Proof:", [BigInt(proof.publicSignals[140]), BigInt(proof.publicSignals[141])]);
-				console.log("Expected Auditor Public Key:", auditorPublicKey);
-				console.log("Sender Public Key in Proof:", [BigInt(proof.publicSignals[0]), BigInt(proof.publicSignals[1])]);
-				console.log("Expected Sender Public Key:", sender.publicKey);
 
 				// 7. Execute batch transfer 
 				try {
