@@ -16,12 +16,12 @@ template BatchTransferCircuit(n) {
 
     signal input SenderPrivateKey;
     signal input SenderPublicKey[2];
-    signal input SenderBalance;
+    signal input SenderBalance; // decrypted balance
     signal input SenderBalanceC1[2];
     signal input SenderBalanceC2[2];
 
     signal input SenderVTTC1[2];
-    signal input SenderVTTC2[2];
+    signal input SenderVTTC2[2]; 
 
     signal input ReceiverPublicKey[n][2];
     signal input ReceiverVTTC1[n][2];
@@ -44,6 +44,7 @@ template BatchTransferCircuit(n) {
     // Verify that the transfer amount is less than or equal to the sender's balance and is less than the base order
     var baseOrder = 2736030358979909402780800718157159386076813972158567259200215660948447373041;   
 
+    
     component bitCheck1 = Num2Bits(252);
     bitCheck1.in <== ValueToTransfer;
 
@@ -69,6 +70,7 @@ template BatchTransferCircuit(n) {
     checkSenderPK.pubKey[0] <== SenderPublicKey[0];
     checkSenderPK.pubKey[1] <== SenderPublicKey[1];
 
+    
     // Verify that the sender's encrypted balance is well-formed
     component checkSenderBalance = CheckValue();
     checkSenderBalance.value <== SenderBalance;
@@ -89,9 +91,15 @@ template BatchTransferCircuit(n) {
 
     // RECEIVER CHECKS
     // Verify that the receiver's encrypted value is the transfer amount by encryption
-    var totalTransferAmount = 0;
     component checkReceiverValue[n];
 
+    // Calculate total transfer amount using signal arithmetic
+    signal totalTransferAmount;
+    signal partialSums[n];
+    
+    // Initialize first partial sum
+    partialSums[0] <== ReceiverAmount[0];
+    
     for (var i = 0; i < n; i++) {
         checkReceiverValue[i] = CheckReceiverValue();
         checkReceiverValue[i].receiverValue <== ReceiverAmount[i];
@@ -103,12 +111,17 @@ template BatchTransferCircuit(n) {
         checkReceiverValue[i].receiverValueC2[0] <== ReceiverVTTC2[i][0]; 
         checkReceiverValue[i].receiverValueC2[1] <== ReceiverVTTC2[i][1];
 
-        totalTransferAmount += ReceiverAmount[i]; // sum of each transfer amount. If each trasfer amount is well-formed then this should equal the total decrypted value.
+        // Calculate running sum for i > 0
+        if (i > 0) {
+            partialSums[i] <== partialSums[i-1] + ReceiverAmount[i];
+        }
     }
 
+    
+    // Set total as the final partial sum
+    totalTransferAmount <== partialSums[n-1];
+
     // Verify that the total of the receiver values equals the transfer amount
-    // Assumes that each transfer amount is well-formed
-    // Assumes that the ValueToTransfer is well-formed
     totalTransferAmount === ValueToTransfer;
     
     // For each receiver verify encrypted summary includes the transfer amount and is encrypted with the receiver's public key
@@ -118,11 +131,7 @@ template BatchTransferCircuit(n) {
         checkReceiverPCT[i] = CheckPCT();
         checkReceiverPCT[i].publicKey[0] <== ReceiverPublicKey[i][0];
         checkReceiverPCT[i].publicKey[1] <== ReceiverPublicKey[i][1];
-
-        for (var j = 0; j < 4; j++) {
-            checkReceiverPCT[i].pct[j] <== ReceiverPCT[i][j];
-        }
-        
+        checkReceiverPCT[i].pct <== ReceiverPCT[i];
         checkReceiverPCT[i].authKey[0] <== ReceiverPCTAuthKey[i][0];
         checkReceiverPCT[i].authKey[1] <== ReceiverPCTAuthKey[i][1];
         checkReceiverPCT[i].nonce <== ReceiverPCTNonce[i];
@@ -140,6 +149,7 @@ template BatchTransferCircuit(n) {
     checkAuditorPCT.nonce <== AuditorPCTNonce;
     checkAuditorPCT.random <== AuditorPCTRandom;
     checkAuditorPCT.value <== ValueToTransfer;
+    
 }
 
 component main { public [ SenderPublicKey, ReceiverPublicKey, AuditorPublicKey, SenderBalanceC1, SenderBalanceC2, SenderVTTC1, SenderVTTC2, ReceiverVTTC1, ReceiverVTTC2, ReceiverPCT, ReceiverPCTAuthKey, ReceiverPCTNonce, AuditorPCT, AuditorPCTAuthKey, AuditorPCTNonce ] } = BatchTransferCircuit(10);

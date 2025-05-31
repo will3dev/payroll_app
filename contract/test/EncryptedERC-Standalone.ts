@@ -66,6 +66,9 @@ describe("EncryptedERC - Standalone", () => {
 		const encryptedERCFactory = new EncryptedERC__factory({
 			"contracts/libraries/BabyJubJub.sol:BabyJubJub": babyJubJub,
 		});
+
+		console.log("Batch transfer verifier:", batchTransferVerifier);
+
 		const encryptedERC_ = await encryptedERCFactory.connect(owner).deploy({
 			registrar: registrar_.target,
 			isConverter: false,
@@ -75,7 +78,7 @@ describe("EncryptedERC - Standalone", () => {
 			withdrawVerifier,
 			transferVerifier,
 			decimals: DECIMALS,
-			batchTransferVerifier: batchTransferVerifier
+			batchTransferVerifier
 		});
 
 		await encryptedERC_.waitForDeployment();
@@ -1028,6 +1031,8 @@ describe("EncryptedERC - Standalone", () => {
 					auditorPublicKey,
 				);
 
+				console.log("Proof (TRANSFER):", proof);
+
 				expect(
 					await encryptedERC
 						.connect(sender.signer)
@@ -1261,26 +1266,67 @@ describe("EncryptedERC - Standalone", () => {
 		});
 
 		describe("Batch Transfer", () => {
-			/*
 			// added this because I was running the batch transfer test specifically and running into errors
 			// because the auditor public key was not set
+
+			// Set up of the sender, recipients, and amounts to transfer
+			let sender: User;
+			
+			const amounts = Array(10).fill(10n);
+			let recipients: User[];
+
+			const totalToTransfer = amounts.reduce((a, b) => a + b, 0n);
+			console.log("Total to transfer:", totalToTransfer);
+
+			let senderBalance: bigint;
+
 			beforeEach(async () => {
+				// First ensure users[0] is registered (needed for auditor)
+				if (!(await registrar.isUserRegistered(users[0].signer.address))) {
+					const chainId = await ethers.provider.getNetwork().then(n => n.chainId);
+					const registrationHash = users[0].genRegistrationHash(chainId);
+
+					const circuit = await zkit.getCircuit("RegistrationCircuit");
+					const registrationCircuit = circuit as unknown as RegistrationCircuit;
+
+					const input = {
+						SenderPrivateKey: users[0].formattedPrivateKey,
+						SenderPublicKey: users[0].publicKey,
+						SenderAddress: BigInt(users[0].signer.address),
+						ChainID: chainId,
+						RegistrationHash: registrationHash,
+					};
+
+					const proof = await registrationCircuit.generateProof(input);
+					const calldata = await registrationCircuit.generateCalldata(proof);
+
+					const tx = await registrar.connect(users[0].signer).register({
+						proofPoints: calldata.proofPoints,
+						publicSignals: calldata.publicSignals,
+					});
+					await tx.wait();
+				}
+
+				// Then set auditor if not already set
 				if (!(await encryptedERC.isAuditorKeySet())) {
-					const tx = await encryptedERC.connect(owner).setAuditorPublicKey(owner.address);
+					const tx = await encryptedERC.connect(owner).setAuditorPublicKey(users[0].signer.address);
 					await tx.wait();
 
 					expect(await encryptedERC.isAuditorKeySet()).to.be.true;
 				}
-			});
-			*/
 
-			it("should successfully perform batch transfer to multiple receivers", async () => {
-				// Setup: Register users and mint tokens to sender
-				const sender = users[15];
+				// Ensure auditorPublicKey variable is set
+				if (!auditorPublicKey || auditorPublicKey[0] === undefined) {
+					const auditorKey = await encryptedERC.auditorPublicKey();
+					auditorPublicKey = [auditorKey[0], auditorKey[1]];
+				}
+			});
+
+
+			it("all receivers should be registered", async () => {
+				recipients = users.slice(1, 11);
+				sender = users[0];
 				console.log("Sender private key:", sender.formattedPrivateKey);
-				console.log("Is private key < 2^253:", sender.formattedPrivateKey < 2n**253n);
-				const recipients = users.slice(1, 11);
-				const amounts = Array(10).fill(10n);
 				
 				let registrationCircuit: RegistrationCircuit;
 				const circuit = await zkit.getCircuit("RegistrationCircuit");
@@ -1288,7 +1334,7 @@ describe("EncryptedERC - Standalone", () => {
 
 				for (const user of [sender, ...recipients]) {
 					
-					
+					// if the user is not registered, register them
 					if (!(await registrar.isUserRegistered(user.signer.address))) {
 						let validProof: CalldataRegistrationCircuitGroth16;
 						
@@ -1334,80 +1380,64 @@ describe("EncryptedERC - Standalone", () => {
 						validProof = calldata;
 					}
 				}
+			})
 
-				// 5. mint tokens to the sender
-				const mintAmount = 10000n;
-				let mintValidProof: CalldataMintCircuitGroth16;
-				const toReceiveMintPKey = sender.publicKey;
-				
-				// In the batch transfer test, before minting:
-				console.log("Sender public key:", sender.publicKey);
-				console.log("Sender address:", sender.signer.address);
-				console.log("Is sender registered:", await registrar.isUserRegistered(sender.signer.address));
-				console.log("Registered public key:", await registrar.getUserPublicKey(sender.signer.address));
-				console.log("Mint amount: ", mintAmount);
-				console.log("Auditor public key:", auditorPublicKey);
+			it("ensure that the sender has enough balance to transfer", async () => {
+				const currentBalance = await encryptedERC.balanceOfStandalone(sender.signer.address);
 
-				const balance = await encryptedERC.balanceOfStandalone(
-					sender.signer.address,
-				);
 
-				// get the decrypted balance by generating the decrypted balance proof
-				const balanceBeforeMint = await getDecryptedBalance(
+				const decryptedCurrentBalance = await getDecryptedBalance(
 					sender.privateKey,
-					balance.amountPCTs,
-					balance.balancePCT,
-					balance.eGCT,
+					currentBalance.amountPCTs,
+					currentBalance.balancePCT,
+					currentBalance.eGCT,
 				);
 
-				console.log("BEFORE Balance PCT:", balance.balancePCT.toString());
-				
-				const mintCalldata = await privateMint(
-					mintAmount,
-					toReceiveMintPKey,
-					auditorPublicKey,
-				);
 
-				await encryptedERC.connect(owner).privateMint(sender.signer.address, {
-					proofPoints: mintCalldata.proofPoints,
-					publicSignals: mintCalldata.publicSignals,
-				});
+				if (decryptedCurrentBalance < totalToTransfer) {
+					console.log("Balance is not enough, minting tokens to sender")
 
-				mintValidProof = mintCalldata;
+					const mintCalldata = await privateMint(
+						totalToTransfer,
+						sender.publicKey,
+						auditorPublicKey,
+					);
 
-				const encryptedBalanceAfterMint = await encryptedERC.balanceOfStandalone(
-					sender.signer.address,
-				);
+					await encryptedERC.connect(owner).privateMint(sender.signer.address, {
+						proofPoints: mintCalldata.proofPoints,
+						publicSignals: mintCalldata.publicSignals,
+					});
 
-				// Log the encrypted balance components
-				console.log("\nEncrypted Balance Components:");
-				console.log("Amount PCTs:", encryptedBalanceAfterMint.amountPCTs.map(pct => pct.toString()));
-				console.log("Balance PCT:", encryptedBalanceAfterMint.balancePCT.toString());
-				console.log("EGCT c1:", encryptedBalanceAfterMint.eGCT.c1.map(c => c.toString()));
-				console.log("EGCT c2:", encryptedBalanceAfterMint.eGCT.c2.map(c => c.toString()));
+					const afterMintBalance = await encryptedERC.balanceOfStandalone(sender.signer.address);
 
-				const balanceAfterMint = await getDecryptedBalance(
-					sender.privateKey,
-					encryptedBalanceAfterMint.amountPCTs,
-					encryptedBalanceAfterMint.balancePCT,
-					encryptedBalanceAfterMint.eGCT,
-				);
+					const decryptedAfterMintBalance = await getDecryptedBalance(
+						sender.privateKey,
+						afterMintBalance.amountPCTs,
+						afterMintBalance.balancePCT,
+						afterMintBalance.eGCT,
+					);
 
-				// Verify the balance calculation
-				console.log("\nBalance Verification:");
-				console.log("Expected balance after mint:", balanceBeforeMint + mintAmount);
-				console.log("Actual balance after mint:", balanceAfterMint);
-				
-				// Verify each amount PCT
-				console.log("\nAmount PCTs Verification:");
-				for (const [pct] of encryptedBalanceAfterMint.amountPCTs) {
-					const decrypted = await decryptPCT(sender.privateKey, pct);
-					console.log("PCT:", pct.toString(), "decrypted to:", decrypted[0].toString());
+					senderBalance = decryptedAfterMintBalance;
+
+					expect(decryptedAfterMintBalance).to.greaterThanOrEqual(totalToTransfer);
+
+					console.log("Minted tokens to sender. New balance:", decryptedAfterMintBalance);
+				} else {
+					senderBalance = decryptedCurrentBalance;
 				}
+			})
 
-				expect(balanceAfterMint).to.equal(balanceBeforeMint + mintAmount);
+			it("should successfully perform batch transfer to multiple receivers", async () => {
+				const currentEncryptedBalance = await encryptedERC.balanceOfStandalone(sender.signer.address);
+				senderBalance = await getDecryptedBalance(
+					sender.privateKey,
+					currentEncryptedBalance.amountPCTs,
+					currentEncryptedBalance.balancePCT,
+					currentEncryptedBalance.eGCT,
+				);
+				
 
-				// 6. Get the receiver balances before the transfer
+				// Get the receiver balances before the transfer
 				const receiverBalancesBeforeTransfer = await Promise.all(
 					recipients.map(async(receiver) => {
 						const balance = await encryptedERC.balanceOfStandalone(receiver.signer.address);
@@ -1424,17 +1454,18 @@ describe("EncryptedERC - Standalone", () => {
 				// 7. generate the batch transfer proof
 				const { proof, senderBalancePCT } = await batchTransfer(
 					sender,
-					balanceAfterMint,
+					senderBalance,
 					recipients,
 					amounts,
 					[
-						...encryptedBalanceAfterMint.eGCT.c1,
-						...encryptedBalanceAfterMint.eGCT.c2,
+						...currentEncryptedBalance.eGCT.c1,
+						...currentEncryptedBalance.eGCT.c2,
 					],
 					auditorPublicKey,
 				);
+				
 
-				// 7. Execute batch transfer 
+				// Execute batch transfer
 				try {
 					const tx = await encryptedERC
 						.connect(sender.signer)
@@ -1445,7 +1476,6 @@ describe("EncryptedERC - Standalone", () => {
 							senderBalancePCT
 						);
 					await tx.wait();
-					console.log("Batch transfer transaction successful");
 				} catch (error) {
 					console.error("Batch transfer failed with error:", error);
 					throw error;
@@ -1476,14 +1506,14 @@ describe("EncryptedERC - Standalone", () => {
 				// 10. Verify the sender balance
 				const encryptedSenderBalanceAfterTransfer = await encryptedERC.balanceOfStandalone(sender.signer.address);
 
-				const senderBalanceAfterTransfer = getDecryptedBalance(
+				const senderBalanceAfterTransfer = await getDecryptedBalance(
 					sender.privateKey,
 					encryptedSenderBalanceAfterTransfer.amountPCTs,
 					encryptedSenderBalanceAfterTransfer.balancePCT,
 					encryptedSenderBalanceAfterTransfer.eGCT,
 				);
 
-				expect(senderBalanceAfterTransfer).to.equal(balanceAfterMint - amounts.reduce((a, b) => a + b, 0n));
+				expect(senderBalanceAfterTransfer).to.equal(senderBalance - totalToTransfer);
 				
 			});
 		});

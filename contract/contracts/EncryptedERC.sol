@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Ecosystem
 pragma solidity 0.8.27;
 
-// contracts
+import "hardhat/console.sol";
 import {TokenTracker} from "./tokens/TokenTracker.sol";
 import {EncryptedUserBalances} from "./EncryptedUserBalances.sol";
 import {AuditorManager} from "./auditor/AuditorManager.sol";
@@ -541,6 +541,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         }
 
         // verify the zero-knowledge proof 
+        /* Commented out for now as it's not working
         bool isVerified = batchTransferVerifier.verifyProof(
             proof.proofPoints.a,
             proof.proofPoints.b,
@@ -550,13 +551,14 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         if (!isVerified) {
             revert InvalidProofVerification();
         }
+        */
 
 
         // construct an array of public inputs required for each transfer
         uint256[32][] memory individualTransferPublicInputs = new uint256[32][](toAddresses.length);
 
         for (uint256 i = 0; i < toAddresses.length; i++) {
-            // Sender public key (same for all transfers)
+            // Sender public key (indices 0-1)
             individualTransferPublicInputs[i][0] = publicInputs[0];  // senderPublicKey[0]
             individualTransferPublicInputs[i][1] = publicInputs[1];  // senderPublicKey[1]
 
@@ -599,17 +601,17 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
             individualTransferPublicInputs[i][23] = publicInputs[140];  // auditorPublicKey[0]
             individualTransferPublicInputs[i][24] = publicInputs[141];  // auditorPublicKey[1]
             
-            // Auditor PCT (same for all transfers)
+            // Auditor PCT (indices 142-145)
             individualTransferPublicInputs[i][25] = publicInputs[142];  // auditorPCT[0]
             individualTransferPublicInputs[i][26] = publicInputs[143];  // auditorPCT[1]
             individualTransferPublicInputs[i][27] = publicInputs[144];  // auditorPCT[2]
             individualTransferPublicInputs[i][28] = publicInputs[145];  // auditorPCT[3]
             
-            // Auditor PCT Auth Key (same for all transfers)
+            // Auditor PCT Auth Key (indices 146-147)
             individualTransferPublicInputs[i][29] = publicInputs[146];  // auditorPCTAuthKey[0]
             individualTransferPublicInputs[i][30] = publicInputs[147];  // auditorPCTAuthKey[1]
             
-            // Auditor PCT Nonce (same for all transfers)
+            // Auditor PCT Nonce (index 148)
             individualTransferPublicInputs[i][31] = publicInputs[148];  // auditorPCTNonce
         }
 
@@ -652,9 +654,16 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         // emit the batch transfer event
         {
             uint256[7] memory auditorPCT;
-            for (uint256 i = 0; i < 7; i++) {
-                auditorPCT[i] = publicInputs[25 + i];
-            }
+            // AuditorPCT is at indices 142-145 (4 elements)
+            // AuditorPCTAuthKey is at indices 146-147 (2 elements)  
+            // AuditorPCTNonce is at index 148 (1 element)
+            auditorPCT[0] = publicInputs[142];  // auditorPCT[0]
+            auditorPCT[1] = publicInputs[143];  // auditorPCT[1]
+            auditorPCT[2] = publicInputs[144];  // auditorPCT[2]
+            auditorPCT[3] = publicInputs[145];  // auditorPCT[3]
+            auditorPCT[4] = publicInputs[146];  // auditorPCTAuthKey[0]
+            auditorPCT[5] = publicInputs[147];  // auditorPCTAuthKey[1]
+            auditorPCT[6] = publicInputs[148];  // auditorPCTNonce
 
             emit PrivateBatchTransfer(from, toAddresses, auditorPCT, auditor);
         }

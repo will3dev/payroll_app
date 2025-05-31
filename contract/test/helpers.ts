@@ -41,6 +41,7 @@ import {
 } from "../typechain-types/factories/contracts/prod/BatchTransferVerifier2.sol"
 
 import type { User } from "./user";
+import { validateBatchTransferInputs, BatchTransferInputs } from "../scripts/validate-circuit-inputs";
 
 const execAsync = util.promisify(exec);
 
@@ -280,6 +281,8 @@ export const privateTransfer = async (
     encRandom: auditorEncRandom,
   } = processPoseidonEncryption([transferAmount], auditorPublicKey);
 
+
+
   // 5. create pct for the sender with the newly calculated balance
   const {
     ciphertext: senderCiphertext,
@@ -487,19 +490,27 @@ export const batchTransfer = async (
 }> => { 
   const totalAmount = amounts.reduce((a, b) => a + b, 0n);
   console.log("Total Amount:", totalAmount);
+  console.log("Amounts:", amounts);
   const senderNewBalance = senderBalance - totalAmount;
 
   // 1. Encrypt transfer amount for sender (same as privateTransfer)
-  const { cipher: encryptedAmountSender, random: encryptedAmountSenderRandom } =
+  const { cipher: encryptedSendAmountSender, random: encryptedSendAmountSenderRandom } =
     encryptMessage(sender.publicKey, totalAmount);
 
-  // 2. generate encrypted amounts for each receiver
-  const receiverEncryptions = await Promise.all(
-    recipients.map(async (receiver, i) => {
-      const { cipher, random } = encryptMessage(receiver.publicKey, amounts[i]);
-      return { cipher, random };
-    })
-  );
+  // 2. generate el-gamal encrypted amounts for each receiver
+  let receiverEncryptions = [];
+
+  for (let i = 0; i < recipients.length; i++) {
+    console.log(`\nReceiver ${i} EGCT Construction Details:`)
+    console.log("Recipient: ", recipients[i].publicKey);
+    console.log("Amount: ", amounts[i].toString());
+    
+    const { cipher, random } = encryptMessage(recipients[i].publicKey, amounts[i]);
+    receiverEncryptions.push({ cipher, random });
+  }
+
+  const receiverEGCTCipertexts = receiverEncryptions.map((r) => r.cipher);
+  const receiverEGCTRandoms = receiverEncryptions.map((r) => r.random);
 
   // 3. generate the receiver PCTs
   const receiverPCTs = await Promise.all(
@@ -513,11 +524,7 @@ export const batchTransfer = async (
 
       console.log(`\nReceiver ${i} PCT Construction Details:`);
       console.log("Input amount:", amounts[i].toString());
-      console.log("Public key:", receiver.publicKey.map(k => k.toString()));
-      console.log("Ciphertext (raw):", receiverCipherText.map(c => c.toString()));
-      console.log("Auth key (raw):", receiverAuthKey.map(k => k.toString()));
-      console.log("Nonce (raw):", receiverNonce.toString());
-      console.log("Random (raw):", receiverEncRandom.toString());
+      console.log("Public key:", receiver.publicKey);
 
       return {
         pct: receiverCipherText,
@@ -536,15 +543,9 @@ export const batchTransfer = async (
     authKey: auditorAuthKey
   } = processPoseidonEncryption([totalAmount], auditorPublicKey);
 
-  console.log("\nAuditor PCT Construction Details:");
-  console.log("Input total amount:", totalAmount.toString());
-  console.log("Public key:", auditorPublicKey.map(k => k.toString()));
-  console.log("Ciphertext (raw):", auditorPCT.map(c => c.toString()));
-  console.log("Auth key (raw):", auditorAuthKey.map(k => k.toString()));
-  console.log("Nonce (raw):", auditorNonce.toString());
-  console.log("Random (raw):", auditorEncRandom.toString());
 
-  // 5. Generate the sender PCT
+  
+    // 5. Generate the sender PCT
   const {
     ciphertext: senderPCT,
     nonce: senderNonce,
@@ -552,13 +553,7 @@ export const batchTransfer = async (
     authKey: senderAuthKey
   } = processPoseidonEncryption([senderNewBalance], sender.publicKey);
 
-  console.log("\nSender PCT Construction Details:");
-  console.log("Input new balance:", senderNewBalance.toString());
-  console.log("Public key:", sender.publicKey.map(k => k.toString()));
-  console.log("Ciphertext (raw):", senderPCT.map(c => c.toString()));
-  console.log("Auth key (raw):", senderAuthKey.map(k => k.toString()));
-  console.log("Nonce (raw):", senderNonce.toString());
-  console.log("Random (raw):", senderEncRandom.toString());
+
   
   // 6. Prepare the circuit inputs
   const input = {
@@ -570,14 +565,14 @@ export const batchTransfer = async (
     SenderBalanceC1: senderEncryptedBalance.slice(0, 2),
     SenderBalanceC2: senderEncryptedBalance.slice(2, 4),
 
-    SenderVTTC1: encryptedAmountSender[0],
-    SenderVTTC2: encryptedAmountSender[1],
+    SenderVTTC1: encryptedSendAmountSender[0],
+    SenderVTTC2: encryptedSendAmountSender[1],
     //SenderVTTRandom: encrypatedAmountSenderRandom,
 
     ReceiverPublicKey: recipients.map((r) => r.publicKey),
-    ReceiverVTTC1: receiverEncryptions.map((r) => r.cipher[0]),
-    ReceiverVTTC2: receiverEncryptions.map((r) => r.cipher[1]),
-    ReceiverVTTRandom: receiverEncryptions.map((r) => r.random),
+    ReceiverVTTC1: receiverEGCTCipertexts.map((c) => c[0]),
+    ReceiverVTTC2: receiverEGCTCipertexts.map((c) => c[1]),
+    ReceiverVTTRandom: receiverEGCTRandoms,
 
     ReceiverPCT: receiverPCTs.map((r) => r.pct),
     ReceiverPCTAuthKey: receiverPCTs.map((r) => r.authKey),
@@ -600,5 +595,8 @@ export const batchTransfer = async (
   const proof = await batchTransferCircuit.generateProof(input);
   const calldata = await batchTransferCircuit.generateCalldata(proof);
 
-  return { proof:calldata, senderBalancePCT: [...senderPCT, ...senderAuthKey, senderNonce] };
+  return { 
+    proof:calldata, 
+    senderBalancePCT: [...senderPCT, ...senderAuthKey, senderNonce] 
+  };
 }

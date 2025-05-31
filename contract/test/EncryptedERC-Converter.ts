@@ -53,6 +53,7 @@ describe("EncryptedERC - Converter", () => {
 			mintVerifier,
 			withdrawVerifier,
 			transferVerifier,
+			batchTransferVerifier,
 		} = await deployVerifiers(owner);
 		const babyJubJub = await deployLibrary(owner);
 
@@ -101,6 +102,7 @@ describe("EncryptedERC - Converter", () => {
 			mintVerifier,
 			withdrawVerifier,
 			transferVerifier,
+			batchTransferVerifier,
 			decimals: DECIMALS,
 		});
 
