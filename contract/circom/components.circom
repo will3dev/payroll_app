@@ -243,6 +243,20 @@ template ElGamalSub() {
 }
 
 
+template CheckSharedKey() {
+    signal input sharedKey[2];
+    signal input pubKey[2];
+    signal input privateKey;
+
+    component generateSharedKey = BabyScalarMul();
+    generateSharedKey.scalar <== privateKey;
+    generateSharedKey.point[0] <== pubKey[0];
+    generateSharedKey.point[1] <== pubKey[1];
+
+    generateSharedKey.Ax === sharedKey[0];
+    generateSharedKey.Ay === sharedKey[1];
+}
+
 
 template CheckPublicKey() {
     signal input privKey;

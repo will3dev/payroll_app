@@ -23,13 +23,15 @@ contract PayrollManager {
     ///                   State Variables           ///
     ///////////////////////////////////////////////////
 
-    // Structs
+    /*
+        The employee data will be encrypted 
+    */
     struct Employee {
-        bytes name;
-        //bytes annualSalary;
-        //bytes dailyRate;
-        //bytes startDate; // unix timestamp
-        //bytes endDate; // unix timestamp
+        uint256[7] namePCT;
+        uint256[7] activeStatusPCT; // Encrypted with the shared public key
+        uint256[7] employeeIdPCT; // Encrypted with the employee's public key
+        uint256[7] lastPaymentAmountPCT; // Encrypted with the shared public key
+        uint256[7] lifetimePaymentTotalPCT; // Encrypted with the shared key; running total of all payments
     }
 
     struct Business {
@@ -37,9 +39,7 @@ contract PayrollManager {
         address[] employees;
     }
 
-    // This tracks the specific payment details from the 
-    //struct Payment{}
-
+    /*
     // This struct is used to store the summary of a specific round of payroll
     struct PayrollSummary {
         uint256 totalPayrollAmount;
@@ -51,15 +51,16 @@ contract PayrollManager {
         uint256 amount;
     }
 
+    */
     
     bytes32 public payrollId; // this would be a hash of the payroll transaction data
     uint256 public nonce;
     uint256 public payrollSummaryId;
 
 
-    mapping(address EmployeeAddress => Employee employeeData) public employeeRegistry;
-    mapping(address BusinessAddress => Business businessData) public businessRegistry;
-    mapping(uint256 payrollId => mapping(address employeeAddress => Payment paymentData)) public payrollDetailHistory;
+    mapping(address EmployeeAddress => Employee employeeData) internal employeeRegistry;
+    mapping(address BusinessAddress => Business businessData) internal businessRegistry;
+    //mapping(uint256 payrollId => mapping(address employeeAddress => Payment paymentData)) public payrollDetailHistory;
 
 
     ///////////////////////////////////////////////////
@@ -93,7 +94,7 @@ contract PayrollManager {
     ///////////////////////////////////////////////////
 
     
-    function storeNewEmployee(address employeeAddress, bytes calldata name) public {
+    function registerNewEmployee(address employeeAddress, bytes calldata name, bytes calldata activeStatusPCT, bytes calldata employeeIdPCT) public {
         Employee memory newEmployee = Employee({
             name: name
         });
@@ -112,6 +113,18 @@ contract PayrollManager {
 
         return employee;
     }
+
+    // Getter functions for public access
+    function getEmployeeData(address employeeAddress) public view returns (Employee memory) {
+        return employeeRegistry[employeeAddress];
+    }
+
+    function getBusinessData(address businessAddress) public view returns (Business memory) {
+        return businessRegistry[businessAddress];
+    }
+
+
+    
 
     
 

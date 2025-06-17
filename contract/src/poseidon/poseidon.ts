@@ -4,9 +4,12 @@ import {
 	genRandomBabyJubValue,
 	poseidonDecrypt,
 	poseidonEncrypt,
+	genEcdhSharedKey,
 } from "maci-crypto";
 import { randomBytes } from "node:crypto";
 import { BASE_POINT_ORDER } from "../constants";
+import { poseidon } from "@zk-kit/poseidon";
+import { bigint } from "hardhat/internal/core/params/argumentTypes";
 
 /**
  * Generates a random nonce
@@ -74,3 +77,100 @@ export const processPoseidonDecryption = (
 
 	return decrypted.slice(0, length);
 };
+
+
+export const pointToBigInt = (point: [bigint, bigint]): bigint => {
+	const [x, y] = point;
+	
+	const xHex = x.toString(16).padStart(64, '0');
+	const yHex = y.toString(16).padStart(64, '0');
+
+	return BigInt('0x' + xHex + yHex);
+};
+
+
+export const processPoseidonEncryptionEcdh = (
+	publicKey: bigint[], // This should be the public key of the recipient
+	privateKey: bigint,
+	message: string
+) => {
+	// Generate shared key using ECDH
+	const pubKeyTuple: [bigint, bigint] = [BigInt(publicKey[0]), BigInt(publicKey[1])];
+	const sharedKey = genEcdhSharedKey(privateKey, pubKeyTuple);
+
+	const messageBuffer = Buffer.from(message, 'utf-8');
+	const messageBigInt = BigInt('0x' + messageBuffer.toString('hex'));
+
+	
+	//const encRandom = sharedKey[0];
+	
+	const poseidonEncryptionKey = mulPointEscalar(
+		pubKeyTuple as Point<bigint>,
+		formatPrivKeyForBabyJub(privateKey)
+	);
+	
+	// this just becomes the public key of the sender
+	const authKey = mulPointEscalar(Base8, formatPrivKeyForBabyJub(privateKey));
+	
+	const nonce = randomNonce();
+	const ciphertext = poseidonEncrypt([messageBigInt], poseidonEncryptionKey, nonce);
+	return { ciphertext, nonce, poseidonEncryptionKey, authKey };
+}
+
+
+
+export const processPoseidonDecryptionEcdh = (
+	publicKey: bigint[], // sender's public key
+	privateKey: bigint, // recipient's private key
+	encryptedMessage: bigint[],
+	authKey: bigint[],
+	nonce: bigint,
+	length: number,
+): string => {
+	// Follow the same pattern as original decryption: sharedKey = authKey * privateKey
+	const authKeyTuple: [bigint, bigint] = [BigInt(authKey[0]), BigInt(authKey[1])];
+	const sharedKey = mulPointEscalar(
+		authKeyTuple as Point<bigint>,
+		formatPrivKeyForBabyJub(privateKey)
+	);
+
+	const decrypted = poseidonDecrypt(
+		encryptedMessage,
+		sharedKey,
+		nonce, 
+		length
+	);
+
+	// Convert decrypted bigint to string
+	const decryptedHex = decrypted[0].toString(16);
+	const decryptedBuffer = Buffer.from(decryptedHex, 'hex');
+	return decryptedBuffer.toString('utf8');
+};
+
+
+export const processPoseidonDecryptionEcdhSender = (
+	publicKey: bigint[], // receiver's public Key
+	privateKey: bigint, // sender's private key
+	encryptedMessage: bigint[],
+	authKey: bigint[],
+	nonce: bigint,
+	length: number,
+): string => {
+	const sharedKey = mulPointEscalar(
+		publicKey as Point<bigint>,
+		formatPrivKeyForBabyJub(privateKey)
+	);
+
+	const decrypted = poseidonDecrypt(
+		encryptedMessage,
+		sharedKey, 
+		nonce,
+		length
+	);
+
+	const decryptedHex = decrypted[0].toString(16);
+	const decryptedBuffer = Buffer.from(decryptedHex, 'hex');
+	return decryptedBuffer.toString('utf8');
+}
+
+

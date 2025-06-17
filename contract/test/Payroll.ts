@@ -34,7 +34,7 @@ import {
 } from "./helpers";
 import { User } from "./user";
 import { encryptMessageEcdh, decryptMessageEcdh } from "../src/ecdh/ecdh";
-
+import { processPoseidonEncryptionEcdh, processPoseidonDecryptionEcdh, processPoseidonDecryptionEcdhSender } from "../src/poseidon/poseidon";
 const DECIMALS = 2;
 
 
@@ -267,7 +267,7 @@ describe("Payroll", () => {
 		});
 	});
 
-    describe("Encryption and Decryption", () => {
+    describe("Encryption and Decryption using AES", () => {
         it("should encrypt and decrypt message properly", async () => {
             const messageInput = "Hello World";
 
@@ -299,13 +299,49 @@ describe("Payroll", () => {
             console.log("Decrypted Message:", decryptedMessage);
             expect(decryptedMessage).to.equal(messageInput);
         });
+    });
 
+    describe("Encryption and Decryption using PCT", () => {
+        it("should encrypt and decrypt message properly PCT", async () => {
+            const messageInput = "Hello World";
 
+            const sender = users[0];
+            const receiver = users[1];
 
+            const {ciphertext, nonce, poseidonEncryptionKey, authKey} = processPoseidonEncryptionEcdh(
+                receiver.publicKey,
+                sender.privateKey,
+                messageInput
+            );
 
-        
-    })
+            console.log("Ciphertext:", ciphertext);
+            console.log("Auth Key:", authKey);
+            console.log("Nonce:", nonce);
+            
+            const decryptedMessage = processPoseidonDecryptionEcdh(
+                sender.publicKey,
+                receiver.privateKey,
+                ciphertext,
+                authKey,
+                nonce,
+                1
+            );
 
+            console.log("Decrypted Message Receiver:", decryptedMessage);
+            expect(decryptedMessage).to.equal(messageInput);
 
+            const decryptedMessageSender = processPoseidonDecryptionEcdhSender(
+                receiver.publicKey,
+                sender.privateKey,
+                ciphertext,
+                authKey,
+                nonce,
+                1
+            );
 
+            console.log("Decrypted Message Sender:", decryptedMessageSender);
+            expect(decryptedMessageSender).to.equal(messageInput);
+
+        });
+    });
 })
