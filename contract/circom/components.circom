@@ -414,10 +414,61 @@ template CheckPCT() {
     checkAuthKey.Ax === authKey[0];
     checkAuthKey.Ay === authKey[1];
 
-    component checkEncKey = BabyScalarMul();
+    component checkEncKey = BabyScalarMul(); 
     checkEncKey.scalar <== random;
     checkEncKey.point[0] <== publicKey[0];
     checkEncKey.point[1] <== publicKey[1];
+
+    component decryptedPCT = PoseidonDecrypt(1);
+    decryptedPCT.ciphertext <== pct;
+    decryptedPCT.nonce <== nonce;
+    decryptedPCT.key[0] <== checkEncKey.Ax;
+    decryptedPCT.key[1] <== checkEncKey.Ay;
+
+
+    decryptedPCT.decrypted[0] === value;
+}
+
+template CheckPCTEcdhSharedKey() {
+    signal input publicKey[2]; // the generated shared key
+    signal input pct[4]; // the encrypted value
+    signal input authKey[2]; // the sender's public key
+    signal input nonce;
+    signal input random; // the receiver's private key
+    signal input value;  // the unencrypted value
+
+    component checkPoint = BabyCheck();
+    checkPoint.x <== publicKey[0];
+    checkPoint.y <== publicKey[1];
+
+    component checkPoint2 = BabyCheck();
+    checkPoint2.x <== authKey[0];
+    checkPoint2.y <== authKey[1];
+
+    // Verify the random is less than the base order
+    var baseOrder = 2736030358979909402780800718157159386076813972158567259200215660948447373041;
+
+    component bitCheck1 = Num2Bits(252);
+    bitCheck1.in <== random;
+
+    component bitCheck2 = Num2Bits(252);
+    bitCheck2.in <== baseOrder;
+
+    component lt = LessThan(252);
+    lt.in[0] <== random;
+    lt.in[1] <== baseOrder;
+    lt.out === 1;
+
+    /*
+    Removed the check for the authKey because the authKey is the public key of the employer
+    It would be impossible to derive the authKey without the employer's private key
+    */
+
+    // use this to generate the shared key using employee private key and business public key
+    component checkEncKey = BabyScalarMul(); 
+    checkEncKey.scalar <== random; // the employee's private key
+    checkEncKey.point[0] <== authKey[0]; // the business's public key
+    checkEncKey.point[1] <== authKey[1];
 
     component decryptedPCT = PoseidonDecrypt(1);
     decryptedPCT.ciphertext <== pct;

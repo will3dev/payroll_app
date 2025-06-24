@@ -21,3 +21,4 @@ error InvalidSender();
 error InvalidRegistrationHash();
 error ZeroAddress();
 error TokenBlacklisted(address token);
+error InvalidPublicKey();

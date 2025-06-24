@@ -82,4 +82,9 @@ struct WithdrawProof {
     uint256[16] publicSignals;
 }
 
+struct EmployeeDataProof {
+    ProofPoints proofPoints;
+    uint256[27] publicSignals;
+}
+
 

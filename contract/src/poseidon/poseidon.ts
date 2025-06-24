@@ -8,8 +8,10 @@ import {
 } from "maci-crypto";
 import { randomBytes } from "node:crypto";
 import { BASE_POINT_ORDER } from "../constants";
-import { poseidon } from "@zk-kit/poseidon";
+//import { poseidon } from "@zk-kit/poseidon";
 import { bigint } from "hardhat/internal/core/params/argumentTypes";
+
+
 
 /**
  * Generates a random nonce
@@ -89,6 +91,24 @@ export const pointToBigInt = (point: [bigint, bigint]): bigint => {
 };
 
 
+export const generateSharedKey = (
+	publicKey: bigint[],
+	privateKey: bigint,
+) => {
+	const pubKeyTuple: [bigint, bigint] = [BigInt(publicKey[0]), BigInt(publicKey[1])];
+	const sharedKey = mulPointEscalar(pubKeyTuple as Point<bigint>, privateKey);
+
+	return sharedKey;
+}
+
+
+export const stringToBigInt = (message: string) => {
+	const messageBuffer = Buffer.from(message, 'utf-8');
+	const messageBigInt = BigInt('0x' + messageBuffer.toString('hex'));
+	return messageBigInt;
+}
+
+
 export const processPoseidonEncryptionEcdh = (
 	publicKey: bigint[], // This should be the public key of the recipient
 	privateKey: bigint,
@@ -96,10 +116,8 @@ export const processPoseidonEncryptionEcdh = (
 ) => {
 	// Generate shared key using ECDH
 	const pubKeyTuple: [bigint, bigint] = [BigInt(publicKey[0]), BigInt(publicKey[1])];
-	const sharedKey = genEcdhSharedKey(privateKey, pubKeyTuple);
 
-	const messageBuffer = Buffer.from(message, 'utf-8');
-	const messageBigInt = BigInt('0x' + messageBuffer.toString('hex'));
+	const messageBigInt = stringToBigInt(message);
 
 	
 	//const encRandom = sharedKey[0];
@@ -174,3 +192,54 @@ export const processPoseidonDecryptionEcdhSender = (
 }
 
 
+
+/**
+ * This is used to encrypt a message with a known random value.
+ * The random value will be likely generated from a known multiplier and a private key.
+ * @param inputs Input array to encrypt
+ * @param publicKey Public key
+ * @returns ciphertext - Encrypted message
+ * @returns nonce - Nonce used for the poseidon encryption
+ * @returns encRandom - Randomness used for the encryption
+ * @returns poseidonEncryptionKey - Encryption key (publicKey * encRandom)
+ * @returns authKey - Authentication key (Base8 * encRandom)
+ */
+export const processPoseidonEncryptionWithEncRandom = (
+	inputs: bigint[],
+	publicKey: bigint[],
+	encRandom: bigint,
+	nonce: bigint
+) => {
+
+	const poseidonEncryptionKey = mulPointEscalar(
+		publicKey as Point<bigint>,
+		encRandom,
+	);
+	const authKey = mulPointEscalar(Base8, encRandom);
+	const ciphertext = poseidonEncrypt(inputs, poseidonEncryptionKey, nonce);
+
+	return { ciphertext, nonce, encRandom, poseidonEncryptionKey, authKey };
+};
+
+/**
+ * This is used to generate a random value from a known multiplier and a private key.
+ * @param knownMultiplier The known multiplier
+ * @param privateKey The private key
+ * @returns The random value
+ */
+export const generateEncRandomFromKnownMultiplier = (
+	knownMultiplier: bigint,
+	privateKey: bigint
+): bigint => {
+	let encRandom = knownMultiplier * privateKey;
+	
+	// Ensure the value is within the valid field range
+	while (encRandom >= BASE_POINT_ORDER || encRandom < 0n) {
+		encRandom = encRandom % BASE_POINT_ORDER;
+		if (encRandom < 0n) {
+			encRandom = BASE_POINT_ORDER + encRandom;
+		}
+	}
+
+	return encRandom;
+}

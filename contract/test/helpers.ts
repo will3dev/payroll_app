@@ -27,6 +27,7 @@ import {
   TransferCircuitGroth16Verifier__factory,
   WithdrawCircuitGroth16Verifier__factory,
   BatchTransferCircuitGroth16Verifier__factory,
+  EmployeeDataGroth16Verifier__factory,
 } from "../typechain-types/factories/contracts/verifiers";
 
 import {
@@ -81,12 +82,17 @@ export const deployVerifiers = async (
     const batchTransferVerifier = await batchTransferVerifierFactory.deploy();
     await batchTransferVerifier.waitForDeployment();
 
+    const payrollVerifierFactory = new Groth16Verifier__factory(signer);
+    const payrollVerifier = await payrollVerifierFactory.deploy();
+    await payrollVerifier.waitForDeployment();
+
     return {
       registrationVerifier: registrationVerifier.target.toString(),
       mintVerifier: mintVerifier.target.toString(),
       withdrawVerifier: withdrawVerifier.target.toString(),
       transferVerifier: transferVerifier.target.toString(),
       batchTransferVerifier: batchTransferVerifier.target.toString(),
+      payrollVerifier: payrollVerifier.target.toString(),
     };
   } if (!isProd) {
     const registrationVerifierFactory =
@@ -114,12 +120,17 @@ export const deployVerifiers = async (
     const batchTransferVerifier = await batchTransferFactory.deploy();
     await batchTransferVerifier.waitForDeployment();
 
+    const payrollVerifierFactory = new EmployeeDataGroth16Verifier__factory(signer);
+    const payrollVerifier = await payrollVerifierFactory.deploy();
+    await payrollVerifier.waitForDeployment();
+
     return {
       registrationVerifier: registrationVerifier.target.toString(),
       mintVerifier: mintVerifier.target.toString(),
       withdrawVerifier: withdrawVerifier.target.toString(),
       transferVerifier: transferVerifier.target.toString(),
       batchTransferVerifier: batchTransferVerifier.target.toString(),
+      payrollVerifier: payrollVerifier.target.toString(),
     };
   }
   throw new Error("Invalid deployment type");

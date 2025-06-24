@@ -12,7 +12,7 @@ import { decryptPoint } from "../src/jub/jub";
 import type {
 	EncryptedERC,
 	MintProofStruct,
-	TransferProofStruct,
+	TransferProofStruct
 } from "../typechain-types/contracts/EncryptedERC";
 import type {
 	RegisterProofStruct,
