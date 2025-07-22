@@ -511,8 +511,8 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         uint256[7] calldata balancePCT
     ) public onlyIfAuditorSet {
         uint256[149] memory publicInputs = proof.publicSignals;
-        address from = msg.sender; // from address is assumed to be msg sender
-
+        address from = msg.sender; // from address is assumed to be msg sende
+                
         // validate sender registration
         {
             if (

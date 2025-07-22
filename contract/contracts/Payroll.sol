@@ -273,10 +273,10 @@ contract PayrollManager {
      * @return firstUnclaimdBonus The first unclaimed bonus
      */
     function fetchFirstUnclaimedBonuses(address businessAddress) public view returns (Bonus memory firstUnclaimdBonus, uint256 bonusIndex) {
-        uint256 bonusIndex = employeeRegistry[businessAddress][msg.sender].bonusIndex;
-        Bonus memory unclaimedBonus = employeeBonus[businessAddress][msg.sender][bonusIndex];
+        uint256 _bonusIndex = employeeRegistry[businessAddress][msg.sender].bonusIndex;
+        Bonus memory unclaimedBonus = employeeBonus[businessAddress][msg.sender][_bonusIndex];
 
-        return ( unclaimedBonus, bonusIndex );
+        return ( unclaimedBonus, _bonusIndex );
     }
 
 

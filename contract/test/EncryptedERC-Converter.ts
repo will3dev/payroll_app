@@ -6,7 +6,6 @@ import {
 	EncryptedERC__factory,
 	Registrar__factory,
 } from "../typechain-types/factories/contracts";
-
 import type {
 	CalldataWithdrawCircuitGroth16,
 	RegistrationCircuit,
@@ -54,7 +53,7 @@ describe("EncryptedERC - Converter", () => {
 			withdrawVerifier,
 			transferVerifier,
 			batchTransferVerifier,
-		} = await deployVerifiers(owner);
+		} = await deployVerifiers(owner, false);
 		const babyJubJub = await deployLibrary(owner);
 
 		for (const d of [6, 18, DECIMALS]) {
@@ -1034,6 +1033,9 @@ describe("EncryptedERC - Converter", () => {
 					senderEncryptedBalance,
 					auditorPublicKey,
 				);
+				console.log("Proof", proof);
+				console.log("Proof Length", proof.publicSignals.length);
+				console.log("Sender balance PCT", senderBalancePCT);
 
 				expect(
 					await encryptedERC

@@ -22,3 +22,10 @@ error InvalidRegistrationHash();
 error ZeroAddress();
 error TokenBlacklisted(address token);
 error InvalidPublicKey();
+
+// Vault Errors
+error VaultAlreadyExists();
+error TokenIdMismatch();
+error InvalidWithdrawalBalance();
+error InvalidVaultBalance();
+

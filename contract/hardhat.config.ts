@@ -18,8 +18,9 @@ const config: HardhatUserConfig = {
 		settings: {
 			optimizer: {
 				enabled: true,
-				runs: 200,
+				runs: 1, // Optimize for deployment size
 			},
+			viaIR: true, // Enable intermediate representation for better optimization
 		},
 	},
 	networks: {
@@ -29,10 +30,11 @@ const config: HardhatUserConfig = {
 				blockNumber: 59121339,
 				enabled: !!process.env.FORKING,
 			},
+			allowUnlimitedContractSize: true,
 		},
 	},
 	gasReporter: {
-		enabled: !!process.env.REPORT_GAS,
+		enabled: true,//!!process.env.REPORT_GAS,
 		currency: "USD",
 		coinmarketcap: process.env.COINMARKETCAP_API_KEY,
 		excludeContracts: ["contracts/mocks/"],

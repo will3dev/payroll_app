@@ -28,6 +28,7 @@ import {
   WithdrawCircuitGroth16Verifier__factory,
   BatchTransferCircuitGroth16Verifier__factory,
   EmployeeDataGroth16Verifier__factory,
+  VaultWithdrawalVerifier__factory,
 } from "../typechain-types/factories/contracts/verifiers";
 
 import {
@@ -40,6 +41,11 @@ import {
 import {
   Groth16Verifier__factory
 } from "../typechain-types/factories/contracts/prod/BatchTransferVerifier2.sol"
+import {
+  processPoseidonEncryptionEcdh,
+  processPoseidonDecryptionEcdh,
+  processPoseidonDecryptionEcdhSender
+} from "../src/poseidon/poseidon";
 
 import type { User } from "./user";
 import { validateBatchTransferInputs, BatchTransferInputs } from "../scripts/validate-circuit-inputs";
@@ -86,6 +92,10 @@ export const deployVerifiers = async (
     const payrollVerifier = await payrollVerifierFactory.deploy();
     await payrollVerifier.waitForDeployment();
 
+    const vaultWithdrawalVerifierFactory = new VaultWithdrawalCircuitGroth16Verifier__factory(signer);
+    const vaultWithdrawalVerifier = await vaultWithdrawalVerifierFactory.deploy();
+    await vaultWithdrawalVerifier.waitForDeployment();
+
     return {
       registrationVerifier: registrationVerifier.target.toString(),
       mintVerifier: mintVerifier.target.toString(),
@@ -93,6 +103,7 @@ export const deployVerifiers = async (
       transferVerifier: transferVerifier.target.toString(),
       batchTransferVerifier: batchTransferVerifier.target.toString(),
       payrollVerifier: payrollVerifier.target.toString(),
+      vaultWithdrawalVerifier: vaultWithdrawalVerifier.target.toString();
     };
   } if (!isProd) {
     const registrationVerifierFactory =
@@ -124,6 +135,10 @@ export const deployVerifiers = async (
     const payrollVerifier = await payrollVerifierFactory.deploy();
     await payrollVerifier.waitForDeployment();
 
+    const vaultWithdrawalVerifierFactory = new VaultWithdrawalCircuitGroth16Verifier__factory(signer);
+    const vaultWithdrawalVerifier = await vaultWithdrawalVerifierFactory.deploy();
+    await vaultWithdrawalVerifier.waitForDeployment();
+
     return {
       registrationVerifier: registrationVerifier.target.toString(),
       mintVerifier: mintVerifier.target.toString(),
@@ -131,6 +146,7 @@ export const deployVerifiers = async (
       transferVerifier: transferVerifier.target.toString(),
       batchTransferVerifier: batchTransferVerifier.target.toString(),
       payrollVerifier: payrollVerifier.target.toString(),
+      vaultWithdrawalVerifier: vaultWithdrawalVerifier.target.toString();
     };
   }
   throw new Error("Invalid deployment type");
