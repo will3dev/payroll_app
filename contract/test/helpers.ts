@@ -28,7 +28,7 @@ import {
   WithdrawCircuitGroth16Verifier__factory,
   BatchTransferCircuitGroth16Verifier__factory,
   EmployeeDataGroth16Verifier__factory,
-  VaultWithdrawalVerifier__factory,
+  VaultWithdrawalCircuitGroth16Verifier__factory,
 } from "../typechain-types/factories/contracts/verifiers";
 
 import {
@@ -103,7 +103,7 @@ export const deployVerifiers = async (
       transferVerifier: transferVerifier.target.toString(),
       batchTransferVerifier: batchTransferVerifier.target.toString(),
       payrollVerifier: payrollVerifier.target.toString(),
-      vaultWithdrawalVerifier: vaultWithdrawalVerifier.target.toString();
+      vaultWithdrawalVerifier: vaultWithdrawalVerifier.target.toString(),
     };
   } if (!isProd) {
     const registrationVerifierFactory =
@@ -146,7 +146,7 @@ export const deployVerifiers = async (
       transferVerifier: transferVerifier.target.toString(),
       batchTransferVerifier: batchTransferVerifier.target.toString(),
       payrollVerifier: payrollVerifier.target.toString(),
-      vaultWithdrawalVerifier: vaultWithdrawalVerifier.target.toString();
+      vaultWithdrawalVerifier: vaultWithdrawalVerifier.target.toString(),
     };
   }
   throw new Error("Invalid deployment type");

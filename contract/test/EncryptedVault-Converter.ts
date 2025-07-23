@@ -75,6 +75,7 @@ describe("EncryptedVault - Converter", () => {
 			withdrawVerifier,
 			transferVerifier,
 			batchTransferVerifier,
+			vaultWithdrawalVerifier,
 		} = await deployVerifiers(owner, false);
 		const babyJubJub = await deployLibrary(owner);
 
@@ -144,9 +145,11 @@ describe("EncryptedVault - Converter", () => {
 		await encryptedVaultBalances_.waitForDeployment();
 
 		// Deploy the EncryptedVaultManager contract with the encryptedVault, encryptedVaultBalances, and registrar addresses
-		const encryptedVaultManagerFactory = new EncryptedVaultManager__factory();
+		const encryptedVaultManagerFactory = new EncryptedVaultManager__factory({
+			"contracts/libraries/BabyJubJub.sol:BabyJubJub": babyJubJub,
+		});
 
-		const encryptedVaultManager_ = await encryptedVaultManagerFactory.connect(owner).deploy(encryptedVault_.target, encryptedVaultBalances_.target, registrar_.target);
+		const encryptedVaultManager_ = await encryptedVaultManagerFactory.connect(owner).deploy(encryptedVault_.target, encryptedVaultBalances_.target, registrar_.target, vaultWithdrawalVerifier);
 
 		await encryptedVaultManager_.waitForDeployment();
 
@@ -537,7 +540,7 @@ describe("EncryptedVault - Converter", () => {
 				expect(vaultSettings.nonce).to.equal(globalNonceBefore);
 				expect(vaultSettings.epochLength).to.equal(epochLength);
 				expect(vaultSettings.tokenId).to.equal(tokenId);
-				expect(vaultSettings.withdrawals.length).to.equal(0);
+				expect(vaultSettings.withdrawalsTotalPCT.length).to.equal(7);
 
 				
 
@@ -651,8 +654,89 @@ describe("EncryptedVault - Converter", () => {
 			});
 
 			describe ("Withdrawing from vaults", () => {
+				let vaultId: bigint;
+				let vaultBalanceBefore: bigint;
+				let userBalanceBefore: bigint;
+				let withdrawalsTotalBefore: bigint;
+				let distributionAmountBefore: bigint;
+
+				
+				it("should move the chain forward", async() => {
+					/*
+						Need to move the chain forward by 1 block. This is to ensure that there have been multiple epochs that have passed.
+
+						Need to get the current block number and the start block.
+
+						Need to calculate the number of epochs since the start block.
+					*/
+					const startBlock = await ethers.provider.getBlockNumber();
+					const numBlocks = 15;
+
+					for (let i = 0; i < numBlocks; i++) {
+						await ethers.provider.send("evm_mine", []);
+					}
+					
+
+					const currentBlock = await ethers.provider.getBlockNumber();
+
+					expect(currentBlock).to.equal(startBlock + Number(numBlocks));
+				});
+
+				
+				it("should get the vault settings, current vault balance, and user balance", async() => {
+					/*
+						Need to implement function to get the vault settings and the current vault balance.
+
+						Then I will need to decrypt the vault balance, withdrawals total, and distribution amount.
+
+						should store the "before" values for the vault balance and withdrawals total.
+
+						should store the "before" values for the user balance.
+					*/
+					vaultId = await encryptedVaultManager.getVaultCreatedFor(funder.signer.address, receiver.signer.address, tokenId);
+					
+					const encryptedVaultBalance = await encryptedVaultManager.getVaultBalance(vaultId);
+					vaultBalanceBefore = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalance.amountPCTs,
+						encryptedVaultBalance.balancePCT,
+						encryptedVaultBalance.eGCT,
+
+					);
+
+					const userBalance = await encryptedVault.balanceOf(receiver.signer.address, tokenId);
+					userBalanceBefore = await getDecryptedBalance(
+						receiver.privateKey,
+						userBalance.amountPCTs,
+						userBalance.balancePCT,
+						userBalance.eGCT,
+					);
+
+					const vaultSettings = await encryptedVaultManager.getVault(vaultId);
+					expect(vaultSettings.withdrawalsTotalPCT[3]).to.equal(0);
+
+					withdrawalsTotalBefore = 0n;
+
+					distributionAmountBefore = BigInt(processPoseidonDecryptionEcdh(
+						funder.publicKey,
+						receiver.privateKey,
+						vaultSettings.distributionAmountPCT.slice(0,4),
+						funder.publicKey,
+						vaultSettings.distributionAmountPCT.slice(4)[0],
+						1
+					));
+				
+				});
+				
+				
 				it ("Should properly calculate amount to draw", async() => {
 					
+					/*
+						After getting the necessary information I will need to calculate the amount to draw.
+
+						The amount to draw must be less than or equal to the amount avaialble to be distributed.
+
+					*/
 					
 					// correct output should be 
 					// 6 epochs for last draw = 60 total draw
@@ -666,6 +750,18 @@ describe("EncryptedVault - Converter", () => {
 						BigInt(10)
 					);
 					console.log("Draw amount", drawAmount);
+				});
+
+				it("should successfully withdraw from the vault", async() => {
+					/*
+						Need to create a proof for the withdrawal.
+
+						submit the transaction to the vault manager.
+
+						Check that the vault balance and withdrawals total have been updated correctly.
+
+						Check that the user's balance has been updated correctly.
+					*/
 				});
 			});
 		});
