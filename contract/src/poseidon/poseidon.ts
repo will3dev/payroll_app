@@ -94,11 +94,11 @@ export const pointToBigInt = (point: [bigint, bigint]): bigint => {
 export const generateSharedKey = (
 	publicKey: bigint[],
 	privateKey: bigint,
-) => {
+): bigint[] => {
 	const pubKeyTuple: [bigint, bigint] = [BigInt(publicKey[0]), BigInt(publicKey[1])];
 	const sharedKey = mulPointEscalar(pubKeyTuple as Point<bigint>, privateKey);
 
-	return sharedKey;
+	return [sharedKey[0], sharedKey[1]];
 }
 
 
@@ -112,12 +112,10 @@ export const stringToBigInt = (message: string) => {
 export const processPoseidonEncryptionEcdh = (
 	publicKey: bigint[], // This should be the public key of the recipient
 	privateKey: bigint,
-	message: string
+	message: bigint
 ) => {
 	// Generate shared key using ECDH
 	const pubKeyTuple: [bigint, bigint] = [BigInt(publicKey[0]), BigInt(publicKey[1])];
-
-	const messageBigInt = stringToBigInt(message);
 
 	
 	//const encRandom = sharedKey[0];
@@ -131,7 +129,7 @@ export const processPoseidonEncryptionEcdh = (
 	const authKey = mulPointEscalar(Base8, formatPrivKeyForBabyJub(privateKey));
 	
 	const nonce = randomNonce();
-	const ciphertext = poseidonEncrypt([messageBigInt], poseidonEncryptionKey, nonce);
+	const ciphertext = poseidonEncrypt([message], poseidonEncryptionKey, nonce);
 	return { ciphertext, nonce, poseidonEncryptionKey, authKey };
 }
 
@@ -144,7 +142,7 @@ export const processPoseidonDecryptionEcdh = (
 	authKey: bigint[],
 	nonce: bigint,
 	length: number,
-): string => {
+):  bigint => {
 	// Follow the same pattern as original decryption: sharedKey = authKey * privateKey
 	const authKeyTuple: [bigint, bigint] = [BigInt(authKey[0]), BigInt(authKey[1])];
 	const sharedKey = mulPointEscalar(
@@ -162,7 +160,9 @@ export const processPoseidonDecryptionEcdh = (
 	// Convert decrypted bigint to string
 	const decryptedHex = decrypted[0].toString(16);
 	const decryptedBuffer = Buffer.from(decryptedHex, 'hex');
-	return decryptedBuffer.toString('utf8');
+	decryptedBuffer.toString('utf8');
+
+	return decrypted[0]
 };
 
 

@@ -20,7 +20,7 @@ import type {
 	CalldataWithdrawCircuitGroth16,
 	RegistrationCircuit,
 } from "../generated-types/zkit";
-import { processPoseidonEncryption } from "../src";
+import { processPoseidonEncryption, processPoseidonDecryption } from "../src";
 import {
 	type FeeERC20,
 	FeeERC20__factory,
@@ -33,6 +33,7 @@ import type {
 	TransferProofStruct,
 } from "../typechain-types/contracts/EncryptedERC";
 import {
+	decryptPCT,
 	deployLibrary,
 	deployVerifiers,
 	getDecryptedBalance,
@@ -47,8 +48,10 @@ import {
   } from "../src/poseidon/poseidon";
 
 import {
-	calculateMaxDraw
+	calculateMaxDraw,
+	vaultWithdrawal
 } from "./vaultHelpers";
+import {encryptMessage } from "../src/jub/jub";
 
 const DECIMALS = 10;
 
@@ -451,7 +454,7 @@ describe("EncryptedVault - Converter", () => {
 
 			it("should revert if amount approved is different from the amount deposited", async () => {
 				const ownerUser = users[0];
-				const depositAmount = 1_000_000_000n;
+				const depositAmount = 1_000_000_000_000_000_000_000_000_000n;
 
 				// Mint some tokens to the owner
 				await feeERC20.connect(owner).mint(owner.address, depositAmount * 10n);
@@ -511,7 +514,7 @@ describe("EncryptedVault - Converter", () => {
 				} = processPoseidonEncryptionEcdh(
 					receiver.publicKey,
 					funder.privateKey,
-					distributionAmountPublic.toString()
+					distributionAmountPublic
 				);
 
 				const distributionAmountPCT: [bigint, bigint, bigint, bigint, bigint] = [
@@ -545,16 +548,14 @@ describe("EncryptedVault - Converter", () => {
 				
 
 
-				const decryptedDistributionAmount = BigInt(
-					processPoseidonDecryptionEcdh(
+				const decryptedDistributionAmount = processPoseidonDecryptionEcdh(
 						funder.publicKey,
 						receiver.privateKey,
 						vaultSettings.distributionAmountPCT.slice(0,4),
 						funder.publicKey,
 						vaultSettings.distributionAmountPCT.slice(4)[0],
 						1
-					)
-				);
+					);
 				expect(decryptedDistributionAmount).to.equal(distributionAmountPublic);
 
 			});
@@ -574,7 +575,9 @@ describe("EncryptedVault - Converter", () => {
 					);
 
 					funderStartingBalance = currentBalance;
-					fundingAmount = BigInt(Math.round(Number(currentBalance) / 2));
+					fundingAmount = BigInt(Math.round(Number(currentBalance) * 0.9));
+
+					
 
 
 				});
@@ -599,18 +602,12 @@ describe("EncryptedVault - Converter", () => {
 						auditorPublicKey
 					);
 
-					console.log("Proof", proof);
-					console.log("Proof Length", proof.publicSignals.length);
-					console.log("Sender balance PCT", funderBalancePCT);
-					console.log("funder balance PCT length", funderBalancePCT.length);
-
 					const gasEstimate = await encryptedVaultManager.connect(funder.signer).fundVault.estimateGas(
 						vaultId,
 						tokenId,
 						proof,
 						funderBalancePCT
 					);
-					console.log("Estimated gas:", gasEstimate.toString());
 
 					expect(
 						await encryptedVaultManager.connect(funder.signer).fundVault(
@@ -659,6 +656,7 @@ describe("EncryptedVault - Converter", () => {
 				let userBalanceBefore: bigint;
 				let withdrawalsTotalBefore: bigint;
 				let distributionAmountBefore: bigint;
+				let currentBlock: bigint;
 
 				
 				it("should move the chain forward", async() => {
@@ -677,7 +675,7 @@ describe("EncryptedVault - Converter", () => {
 					}
 					
 
-					const currentBlock = await ethers.provider.getBlockNumber();
+					currentBlock = BigInt(await ethers.provider.getBlockNumber());
 
 					expect(currentBlock).to.equal(startBlock + Number(numBlocks));
 				});
@@ -729,41 +727,143 @@ describe("EncryptedVault - Converter", () => {
 				});
 				
 				
-				it ("Should properly calculate amount to draw", async() => {
+				it ("Should properly calculate amount to draw and withdraw from the vault", async() => {
 					
 					/*
-						After getting the necessary information I will need to calculate the amount to draw.
+						Need to get the current block number and the start block.
+
+						Need to calculate the number of epochs since the start block.
+
+						Need to calculate the amount to draw.
 
 						The amount to draw must be less than or equal to the amount avaialble to be distributed.
 
 					*/
-					
-					// correct output should be 
-					// 6 epochs for last draw = 60 total draw
-					// 10 epochs from start to current
-					// 4 epochs have completed = 40 total draw
-					const drawAmount = calculateMaxDraw(
-						BigInt(10), // start
-						BigInt(31), // current
-						BigInt(23), // last draw
-						BigInt(2),
-						BigInt(10)
+
+					const vaultSettings = await encryptedVaultManager.getVault(vaultId);
+
+					const distributionAmount = BigInt(
+						processPoseidonDecryptionEcdh(
+							funder.publicKey,
+							receiver.privateKey,
+							vaultSettings.distributionAmountPCT.slice(0,4),
+							funder.publicKey,
+							vaultSettings.distributionAmountPCT.slice(4)[0],
+							1
+						)
 					);
-					console.log("Draw amount", drawAmount);
+					
+
+					const {
+						availableToDraw,
+						remainder,
+						epochsSinceStart
+					} = await calculateMaxDraw(
+						vaultSettings.startBlock,
+						currentBlock,
+						vaultSettings.epochLength,
+						distributionAmount,
+						BigInt(0)
+					)
+
+					const encryptedVaultBalance = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceNow = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalance.amountPCTs,
+						encryptedVaultBalance.balancePCT,
+						encryptedVaultBalance.eGCT,
+
+					);
+
+					const {
+						cipher: totalWithdrawalsCiphertext,
+						random: totalWithdrawalsRandom
+					} = encryptMessage(receiver.publicKey, withdrawalsTotalBefore);
+
+					
+					const withdrawalAmount = vaultBalanceNow / 2n;
+					
+					const {
+						proof,
+						senderBalancePCT
+					} = await vaultWithdrawal(
+						receiver,
+						funder,
+						BigInt(tokenId),
+						withdrawalAmount,
+						withdrawalsTotalBefore,
+						[...totalWithdrawalsCiphertext[0], ...totalWithdrawalsCiphertext[1]],
+						vaultBalanceNow,
+						[...encryptedVaultBalance.eGCT.c1, ...encryptedVaultBalance.eGCT.c2],
+						auditorPublicKey,
+						distributionAmount,
+						vaultSettings.distributionAmountPCT.slice(0,4),
+						vaultSettings.distributionAmountPCT.slice(4)[0],
+						vaultSettings.epochLength,
+						vaultSettings.startBlock,
+						currentBlock,
+						epochsSinceStart,
+						remainder
+					);
+
+					expect(
+						await encryptedVaultManager.connect(receiver.signer).withdrawFromVault(
+							vaultId,
+							proof,
+							senderBalancePCT
+						)
+					).to.be.not.reverted;
+
+					
+					// check the vault balance to make sure it was debited the corret amount.
+					const encryptedVaultBalanceAfterWithdrawal = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceAfterWithdrawal = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalanceAfterWithdrawal.amountPCTs,
+						encryptedVaultBalanceAfterWithdrawal.balancePCT,
+						encryptedVaultBalanceAfterWithdrawal.eGCT,
+					);
+
+					expect(vaultBalanceAfterWithdrawal).to.equal(vaultBalanceBefore - withdrawalAmount);
+					
+					//check the withdrawals total to make sure it now reflects the amount just withdrawn.
+					const vaultSettingsAfterWithdrawal = await encryptedVaultManager.getVault(vaultId);
+					const withdrawalsTotalAfterWithdrawal = await decryptPCT(receiver.privateKey, vaultSettingsAfterWithdrawal.withdrawalsTotalPCT);
+					expect(withdrawalsTotalAfterWithdrawal[0]).to.equal(withdrawalsTotalBefore + withdrawalAmount);
+					
+					//check the user's balance to make sure it was credited with the amount from the withdrawal
+					const userBalanceAfterWithdrawal = await encryptedVault.balanceOf(receiver.signer.address, tokenId);
+					const userBalanceAfterWithdrawalDecrypted = await getDecryptedBalance(
+						receiver.privateKey,
+						userBalanceAfterWithdrawal.amountPCTs,
+						userBalanceAfterWithdrawal.balancePCT,
+						userBalanceAfterWithdrawal.eGCT,
+					);
+
+					expect(userBalanceAfterWithdrawalDecrypted).to.equal(userBalanceBefore + withdrawalAmount);
+
 				});
 
-				it("should successfully withdraw from the vault", async() => {
+				it("should allow a user to performa a private transfer using funds withdrawn from the vault", async() => {
 					/*
-						Need to create a proof for the withdrawal.
+						Just need to process a withdrawal that is equal to or less than t
+					*/
+				});
+				
+				it("should not allow a user to withdraw more than the available amount", async() => {
+					/*
+						Need to write a test that will attempt to withdraw more than the avaialble amount.
+					*/
+				});
 
-						submit the transaction to the vault manager.
-
-						Check that the vault balance and withdrawals total have been updated correctly.
-
-						Check that the user's balance has been updated correctly.
+				it("should allow a relayer to process a withdrawal for the receiver", async() => {
+					/*
+						need to write a test that will process a withdrawal for the receiver. that is sent by a different address.
 					*/
 				});
 			});
+
+			describe("Transfer")
 		});
 	});
 });

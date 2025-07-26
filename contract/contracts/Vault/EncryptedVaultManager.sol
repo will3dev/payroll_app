@@ -268,14 +268,40 @@ contract EncryptedVaultManager {
         VaultSettings storage vault = vaultSettings[vaultId];
 
         // validate user registration
-
+        {
+            if (
+                !registrar.isUserRegistered(receiverOfVault[vaultId]) ||
+                !registrar.isUserRegistered(funderOfVault[vaultId])
+            ) {
+                revert UserNotRegistered();
+            }
+        }
 
         // validate public keys
+        {
+            uint256[2] memory receiverPublicKey = registrar.getUserPublicKey(receiverOfVault[vaultId]);
+            uint256[2] memory funderPublicKey = registrar.getUserPublicKey(funderOfVault[vaultId]);
 
+            if (
+                receiverPublicKey[0] != publicInputs[0] ||
+                receiverPublicKey[1] != publicInputs[1] ||
+                funderPublicKey[0] != publicInputs[6] ||
+                funderPublicKey[1] != publicInputs[7]
+            ) {
+                revert InvalidProof();
+            }
 
+        }
 
         // validate auditor public key
-
+        {
+            if (
+                encryptedVault.auditorPublicKey().x != publicInputs[30] ||
+                encryptedVault.auditorPublicKey().y != publicInputs[31]
+            ) {
+                revert InvalidProof();
+            }
+        }
 
         // verify the proof
         bool isVerified = vaultWithdrawalVerifier.verifyProof(
@@ -303,7 +329,7 @@ contract EncryptedVaultManager {
             c2: Point({x: publicInputs[21], y: publicInputs[22]})
         });
         if (vault.withdrawalsTotalEGCT.c1.x == 0 && vault.withdrawalsTotalEGCT.c1.y == 0) {
-            vault.withdrawalsTotalEGCT = withdrawalTotalEGCT;
+            vault.withdrawalsTotalEGCT = withdrawalAmountEGCT;
         } else {
             // check that user has the correct balance 
             EGCT memory storedWithdrawalTotal = vault.withdrawalsTotalEGCT;
@@ -441,11 +467,11 @@ contract EncryptedVaultManager {
         require (vault.epochLength == inputs[41], "Invalid epoch length");
         require (vault.startBlock == inputs[42], "Invalid start block");
         require (block.number >= inputs[43], "provided current block is in the future");
-        require (vault.distributionAmountPCT[0] == inputs[44], "Invalid distribution amount PCT");
-        require (vault.distributionAmountPCT[1] == inputs[45], "Invalid distribution amount PCT");
-        require (vault.distributionAmountPCT[2] == inputs[46], "Invalid distribution amount PCT");
-        require (vault.distributionAmountPCT[3] == inputs[47], "Invalid distribution amount PCT");
-        require (vault.distributionAmountPCT[4] == inputs[48], "Invalid distribution Nonce");
+        require (vault.distributionAmountPCT[0] == inputs[45], "Invalid distribution amount PCT");
+        require (vault.distributionAmountPCT[1] == inputs[46], "Invalid distribution amount PCT");
+        require (vault.distributionAmountPCT[2] == inputs[47], "Invalid distribution amount PCT");
+        require (vault.distributionAmountPCT[3] == inputs[48], "Invalid distribution amount PCT");
+        require (vault.distributionAmountPCT[4] == inputs[49], "Invalid distribution Nonce");
     }
     
     /**

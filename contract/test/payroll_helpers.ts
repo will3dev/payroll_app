@@ -289,7 +289,7 @@ export const claimBonus = async (
   } = await processPoseidonEncryptionEcdh(
     businessPublicKey,
     employee.privateKey,
-    employeeName
+    stringToBigInt(employeeName)
   );
 
   // generate the employeeData proof

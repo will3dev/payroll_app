@@ -222,7 +222,7 @@ template VaultWithdrawalCircuit () {
     checkTotalWithdrawal.valueC1[0] <== totalWithdrawC1[0];
     checkTotalWithdrawal.valueC1[1] <== totalWithdrawC1[1];
     checkTotalWithdrawal.valueC2[0] <== totalWithdrawC2[0];
-    checkTotalWithdrawal.valueC2[1] <== totalWithdrawC1[1];
+    checkTotalWithdrawal.valueC2[1] <== totalWithdrawC2[1];
     
     // check that PCT value is well formed
     component checkNewTotalWithdrawalPCT = CheckPCT();
@@ -271,7 +271,7 @@ component main { public [
     epochLength, // 41
     startBlock, // 42
     currentBlock, // 43
+    remainder // 49
     distributionAmountPCT, // 44-47
     distributionAmountNonce, // 48
-    remainder // 49
 ] } = VaultWithdrawalCircuit();
