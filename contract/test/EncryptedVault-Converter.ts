@@ -545,9 +545,6 @@ describe("EncryptedVault - Converter", () => {
 				expect(vaultSettings.tokenId).to.equal(tokenId);
 				expect(vaultSettings.withdrawalsTotalPCT.length).to.equal(7);
 
-				
-
-
 				const decryptedDistributionAmount = processPoseidonDecryptionEcdh(
 						funder.publicKey,
 						receiver.privateKey,
@@ -600,13 +597,6 @@ describe("EncryptedVault - Converter", () => {
 						fundingAmount,
 						funderEncryptedBalance,
 						auditorPublicKey
-					);
-
-					const gasEstimate = await encryptedVaultManager.connect(funder.signer).fundVault.estimateGas(
-						vaultId,
-						tokenId,
-						proof,
-						funderBalancePCT
 					);
 
 					expect(
@@ -727,7 +717,7 @@ describe("EncryptedVault - Converter", () => {
 				});
 				
 				
-				it ("Should properly calculate amount to draw and withdraw from the vault", async() => {
+				it ("Should process a withdrawal from the vault", async() => {
 					
 					/*
 						Need to get the current block number and the start block.
@@ -844,26 +834,388 @@ describe("EncryptedVault - Converter", () => {
 
 				});
 
-				it("should allow a user to performa a private transfer using funds withdrawn from the vault", async() => {
-					/*
-						Just need to process a withdrawal that is equal to or less than t
-					*/
-				});
-				
-				it("should not allow a user to withdraw more than the available amount", async() => {
+				it("should not allow a user to withdraw more than the max available draw amount - the proof should fail", async() => {
 					/*
 						Need to write a test that will attempt to withdraw more than the avaialble amount.
 					*/
+
+					const vaultSettings = await encryptedVaultManager.getVault(vaultId);
+
+					const distributionAmount = BigInt(
+						processPoseidonDecryptionEcdh(
+							funder.publicKey,
+							receiver.privateKey,
+							vaultSettings.distributionAmountPCT.slice(0,4),
+							funder.publicKey,
+							vaultSettings.distributionAmountPCT.slice(4)[0],
+							1
+						)
+					);
+
+					const withdrawalsTotal = await decryptPCT(receiver.privateKey, vaultSettings.withdrawalsTotalPCT);
+
+					const {
+						availableToDraw,
+						remainder,
+						epochsSinceStart
+					} = await calculateMaxDraw(
+						vaultSettings.startBlock,
+						currentBlock,
+						vaultSettings.epochLength,
+						distributionAmount,
+						withdrawalsTotal[0]
+					)
+
+					const encryptedVaultBalance = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceNow = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalance.amountPCTs,
+						encryptedVaultBalance.balancePCT,
+						encryptedVaultBalance.eGCT,
+
+					);
+
+					const {
+						cipher: totalWithdrawalsCiphertext,
+						random: totalWithdrawalsRandom
+					} = encryptMessage(receiver.publicKey, withdrawalsTotalBefore);
+
+					
+					const withdrawalAmount = availableToDraw + 1n;
+					
+					try {
+						const {
+							proof,
+							senderBalancePCT
+						} = await vaultWithdrawal(
+							receiver,
+							funder,
+							BigInt(tokenId),
+							withdrawalAmount,
+							withdrawalsTotalBefore,
+							[...totalWithdrawalsCiphertext[0], ...totalWithdrawalsCiphertext[1]],
+							vaultBalanceNow,
+							[...encryptedVaultBalance.eGCT.c1, ...encryptedVaultBalance.eGCT.c2],
+							auditorPublicKey,
+							distributionAmount,
+							vaultSettings.distributionAmountPCT.slice(0,4),
+							vaultSettings.distributionAmountPCT.slice(4)[0],
+							vaultSettings.epochLength,
+							vaultSettings.startBlock,
+							currentBlock,
+							epochsSinceStart,
+							remainder
+						);
+						expect.fail("Transaction should have failed");
+					} catch (error) {
+						console.log("Transaction failed as expected", error);
+					}
+				});
+
+				it("should not allow a user to withdraw more than the amount available in the vault", async() => {
+					/*
+						Need to write a test that will attempt to withdraw more than the avaialble amount.
+					*/
+
+					const vaultSettings = await encryptedVaultManager.getVault(vaultId);
+
+					const distributionAmount = BigInt(
+						processPoseidonDecryptionEcdh(
+							funder.publicKey,
+							receiver.privateKey,
+							vaultSettings.distributionAmountPCT.slice(0,4),
+							funder.publicKey,
+							vaultSettings.distributionAmountPCT.slice(4)[0],
+							1
+						)
+					);
+
+					const withdrawalsTotal = await decryptPCT(receiver.privateKey, vaultSettings.withdrawalsTotalPCT);
+
+					const {
+						availableToDraw,
+						remainder,
+						epochsSinceStart
+					} = await calculateMaxDraw(
+						vaultSettings.startBlock,
+						currentBlock,
+						vaultSettings.epochLength,
+						distributionAmount,
+						withdrawalsTotal[0]
+					)
+
+					const encryptedVaultBalance = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceNow = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalance.amountPCTs,
+						encryptedVaultBalance.balancePCT,
+						encryptedVaultBalance.eGCT,
+					);
+
+					const {
+						cipher: totalWithdrawalsCiphertext,
+						random: totalWithdrawalsRandom
+					} = encryptMessage(receiver.publicKey, withdrawalsTotalBefore);
+
+					
+					const withdrawalAmount = vaultBalanceNow + 1n;;
+					
+					try {
+						const {
+							proof,
+							senderBalancePCT
+						} = await vaultWithdrawal(
+							receiver,
+							funder,
+							BigInt(tokenId),
+							withdrawalAmount,
+							withdrawalsTotalBefore,
+							[...totalWithdrawalsCiphertext[0], ...totalWithdrawalsCiphertext[1]],
+							vaultBalanceNow,
+							[...encryptedVaultBalance.eGCT.c1, ...encryptedVaultBalance.eGCT.c2],
+							auditorPublicKey,
+							distributionAmount,
+							vaultSettings.distributionAmountPCT.slice(0,4),
+							vaultSettings.distributionAmountPCT.slice(4)[0],
+							vaultSettings.epochLength,
+							vaultSettings.startBlock,
+							currentBlock,
+							epochsSinceStart,
+							remainder
+						);
+						expect.fail("Transaction should have failed");
+					} catch (error) {
+						console.log("Transaction failed as expected", error);
+					}
+				});
+				
+				it("should allow a user to performa a private transfer using funds withdrawn from the vault", async() => {
+					/*
+						Just need to process a withdrawal that is equal to or less than the amount withdrawn from the vault.
+					*/		
+					
+					// get the user receiving funds fromt the transfer before
+					const balanceUserThree = await encryptedVault.balanceOf(users[3].signer.address, tokenId);
+
+					const decryptedBalanceUserThree = await getDecryptedBalance(
+						users[3].privateKey,
+						balanceUserThree.amountPCTs,
+						balanceUserThree.balancePCT,
+						balanceUserThree.eGCT,
+					);
+					
+					const balanceUserThreeBefore = decryptedBalanceUserThree;
+					
+					// get the "Receiver" user's balance to build the transfer proof
+					// In this case the "Receiver" is the user that was the beneficiary of the vault.
+					const balance = await encryptedVault.balanceOf(receiver.signer.address, tokenId);
+					const receiverEncryptedBalance = [...balance.eGCT.c1, ...balance.eGCT.c2];
+
+					const decryptedReceiverBalance = await getDecryptedBalance(
+						receiver.privateKey,
+						balance.amountPCTs,
+						balance.balancePCT,
+						balance.eGCT,
+					);
+
+					console.log("Decrypted receiver balance", decryptedReceiverBalance);
+
+					const withdrawalAmount = decryptedReceiverBalance/2n;
+
+					// check if the user is registered
+					expect(await registrar.isUserRegistered(users[3].signer.address)).to.be
+						.true;
+
+					const { 
+						proof: proof,
+						senderBalancePCT: receiverBalancePCT // this "receiver" is the user that was the beneficiary of the vault.
+					} = await privateTransfer(
+						receiver,
+						decryptedReceiverBalance,
+						users[3].publicKey,
+						withdrawalAmount,
+						receiverEncryptedBalance,
+						auditorPublicKey
+					);
+
+					console.log("Proof", proof);
+					console.log("Proof length", proof.publicSignals.length);
+					console.log("Receiver balance PCT", receiverBalancePCT);
+
+					expect(
+						await encryptedVault.connect(receiver.signer).transfer(
+							users[3].signer.address,
+							tokenId,
+							proof,
+							receiverBalancePCT
+						)
+					).to.be.not.reverted;
+
+					const balanceUserThreeAfter = await encryptedVault.balanceOf(users[3].signer.address, tokenId);
+
+					const decryptedBalanceUserThreeAfter = await getDecryptedBalance(
+						users[3].privateKey,
+						balanceUserThreeAfter.amountPCTs,
+						balanceUserThreeAfter.balancePCT,
+						balanceUserThreeAfter.eGCT,
+					);
+					
+					expect(decryptedBalanceUserThreeAfter).to.equal(balanceUserThreeBefore + withdrawalAmount);
+
 				});
 
 				it("should allow a relayer to process a withdrawal for the receiver", async() => {
 					/*
 						need to write a test that will process a withdrawal for the receiver. that is sent by a different address.
 					*/
+					const blockForTest = BigInt(await ethers.provider.getBlockNumber());
+
+					// get the user balance before the withdrawal
+					const userBalanceTestStart = await encryptedVault.balanceOf(receiver.signer.address, tokenId);
+					const userBalanceTestStartDecrypted = await getDecryptedBalance(
+						receiver.privateKey,
+						userBalanceTestStart.amountPCTs,
+						userBalanceTestStart.balancePCT,
+						userBalanceTestStart.eGCT,
+					);
+
+					console.log("User balance test start", userBalanceTestStartDecrypted);
+
+					// get the vault balance before the withdrawal
+					const vaultBalanceTestStart = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceTestStartDecrypted = await getDecryptedBalance(
+						receiver.privateKey,
+						vaultBalanceTestStart.amountPCTs,
+						vaultBalanceTestStart.balancePCT,
+						vaultBalanceTestStart.eGCT,
+					);
+
+					// get the vault settings and decrypted required values
+					const vaultSettings = await encryptedVaultManager.getVault(vaultId);
+
+					const withdrawalsTotal = await decryptPCT(receiver.privateKey, vaultSettings.withdrawalsTotalPCT);
+
+					const distributionAmount = BigInt(
+						processPoseidonDecryptionEcdh(
+							funder.publicKey,
+							receiver.privateKey,
+							vaultSettings.distributionAmountPCT.slice(0,4),
+							funder.publicKey,
+							vaultSettings.distributionAmountPCT.slice(4)[0],
+							1
+						)
+					);
+					
+
+					const {
+						availableToDraw,
+						remainder,
+						epochsSinceStart
+					} = await calculateMaxDraw(
+						vaultSettings.startBlock,
+						blockForTest,
+						vaultSettings.epochLength,
+						distributionAmount,
+						BigInt(0)
+					)
+
+					const encryptedVaultBalance = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceNow = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalance.amountPCTs,
+						encryptedVaultBalance.balancePCT,
+						encryptedVaultBalance.eGCT,
+
+					);
+					
+					const withdrawalAmount = vaultBalanceNow / 2n;
+					console.log("Withdrawal amount", withdrawalAmount);
+					
+					const {
+						proof,
+						senderBalancePCT
+					} = await vaultWithdrawal(
+						receiver,
+						funder,
+						BigInt(tokenId),
+						withdrawalAmount,
+						withdrawalsTotal[0],
+						[...vaultSettings.withdrawalsTotalEGCT.c1, ...vaultSettings.withdrawalsTotalEGCT.c2],
+						vaultBalanceNow,
+						[...encryptedVaultBalance.eGCT.c1, ...encryptedVaultBalance.eGCT.c2],
+						auditorPublicKey,
+						distributionAmount,
+						vaultSettings.distributionAmountPCT.slice(0,4),
+						vaultSettings.distributionAmountPCT.slice(4)[0],
+						vaultSettings.epochLength,
+						vaultSettings.startBlock,
+						blockForTest,
+						epochsSinceStart,
+						remainder
+					);
+
+					// This should process successfully since there is not a requirement that a specific user process the function call
+					expect(
+						await encryptedVaultManager.connect(users[4].signer).withdrawFromVault(
+							vaultId,
+							proof,
+							senderBalancePCT
+						)
+					).to.be.not.reverted;
+
+					
+					// check the vault balance to make sure it was debited the corret amount.
+					const encryptedVaultBalanceAfterWithdrawal = await encryptedVaultManager.getVaultBalance(vaultId);
+					const vaultBalanceAfterWithdrawal = await getDecryptedBalance(
+						receiver.privateKey,
+						encryptedVaultBalanceAfterWithdrawal.amountPCTs,
+						encryptedVaultBalanceAfterWithdrawal.balancePCT,
+						encryptedVaultBalanceAfterWithdrawal.eGCT,
+					);
+
+					expect(vaultBalanceAfterWithdrawal).to.equal(vaultBalanceTestStartDecrypted - withdrawalAmount);
+					
+					//check the withdrawals total to make sure it now reflects the amount just withdrawn.
+					const vaultSettingsAfterWithdrawal = await encryptedVaultManager.getVault(vaultId);
+					const withdrawalsTotalAfterWithdrawal = await decryptPCT(receiver.privateKey, vaultSettingsAfterWithdrawal.withdrawalsTotalPCT);
+					expect(withdrawalsTotalAfterWithdrawal[0]).to.equal(withdrawalsTotal[0] + withdrawalAmount);
+					
+					
+					//check the user's balance to make sure it was credited with the amount from the withdrawal
+					const userBalanceAfterWithdrawal = await encryptedVault.balanceOf(receiver.signer.address, tokenId);
+					const userBalanceAfterWithdrawalDecrypted = await getDecryptedBalance(
+						receiver.privateKey,
+						userBalanceAfterWithdrawal.amountPCTs,
+						userBalanceAfterWithdrawal.balancePCT,
+						userBalanceAfterWithdrawal.eGCT,
+					);
+
+					console.log("User balance after withdrawal", userBalanceAfterWithdrawalDecrypted);
+					console.log("Total of starting amount and withdrawal amount", userBalanceTestStartDecrypted + withdrawalAmount);
+					expect(userBalanceAfterWithdrawalDecrypted).to.equal(userBalanceTestStartDecrypted + withdrawalAmount);
+					
 				});
 			});
 
-			describe("Transfer")
+			describe("Check that only vault manager contract can call functions on encrypted vault and encrypted vault balances", () => {
+				it("should not allow a user to call functions on encrypted vault", async() => {
+					/*
+						need to write a test that will attempt to call a function on encrypted vault that is not allowed.
+
+						need to check that the function is not allowed.
+
+						need to check that the function reverts.
+
+						need to check that the function reverts with the correct error message.
+					*/
+				});
+
+				it("should not allow a user to call functions on encrypted vault balances", async() => {
+					/*
+						need to write a test that will attempt to call a function on encrypted vault balances that is not allowed.
+					*/
+				});
+			});
 		});
 	});
 });

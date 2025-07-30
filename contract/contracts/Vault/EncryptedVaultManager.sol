@@ -169,10 +169,8 @@ contract EncryptedVaultManager {
         uint256[7] calldata balancePCT
     ) external {
         uint256[32] memory publicInputs = proof.publicSignals;
-        address from = msg.sender;
+        address from = funderOfVault[vaultId];
 
-
-        
         // Validate user registrations
         {
             if (
@@ -266,6 +264,7 @@ contract EncryptedVaultManager {
     ) external {
         uint256[50] memory publicInputs = proof.publicSignals;
         VaultSettings storage vault = vaultSettings[vaultId];
+        
 
         // validate user registration
         {
@@ -375,7 +374,7 @@ contract EncryptedVaultManager {
                 withdrawalAmountPCT[i] = publicInputs[12 + i];
             }
 
-            encryptedVault.withdrawFromVault(withdrawalAmountEGCT, withdrawalAmountPCT, msg.sender, vault.tokenId);
+            encryptedVault.withdrawFromVault(withdrawalAmountEGCT, withdrawalAmountPCT, receiverOfVault[vaultId], vault.tokenId);
         }
     }
 
